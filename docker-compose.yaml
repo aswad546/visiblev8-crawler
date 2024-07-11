@@ -52,7 +52,7 @@ services:
     ports:
       - "6380:6379/tcp"
   mongodb:
-    image: 'mongo:6'
+    image: 'mongo:4'
     environment:
       MONGO_INITDB_ROOT_USERNAME: vv8
       MONGO_INITDB_ROOT_PASSWORD: vv8
