@@ -99,7 +99,7 @@ class UrlSubmitRequestModel(BaseModel):
     disable_screenshot: Optional[bool] = False
     disable_artifact_collection: Optional[bool] = False
     parser_config: Optional[ParserConfigRequest]
-    hard_timeout: Optional[int] = 2 * 60 # timeout
+    hard_timeout: Optional[int] = 5 * 60 # timeout
 
 
 @dataclass

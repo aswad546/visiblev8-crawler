@@ -7,8 +7,8 @@ const pupp = require('puppeteer');
 const fs = require( 'fs' );
 // Tuning parameters
 // Per Juestock et al. 30s + 15s for page load
-const DEFAULT_NAV_TIME = 120;
-const DEFAULT_LOITER_TIME = 1;
+const DEFAULT_NAV_TIME = 180;
+const DEFAULT_LOITER_TIME = 10;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -366,15 +366,15 @@ function main() {
 
             puppeteer.use(PuppeteerExtraPluginStealth());
             const browser = await puppeteer.launch({
-                headless: false,
+                headless: true,
                 userDataDir: user_data_dir,
                 dumpio: show_log,
                 executablePath: '/opt/chromium.org/chromium/chrome',
                 args: combined_crawler_args,
-                timeout: 120 * 1000,
-                protocolTimeout: 120 * 1000,
+                timeout: 180 * 1000,
+                protocolTimeout: 180 * 1000,
             });
-            // await closeAllTabs(browser)
+
             await configureConsentOMatic(browser)
 
             console.log('Launching new browser tab 1')
@@ -393,6 +393,8 @@ function main() {
                         waitUntil: 'load'
                     });
                     console.log('Page load event is triggered')
+                    //Wait for any additional scripts to load
+                    await sleep(3000)
                     await triggerEventHandlers(page);
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);
