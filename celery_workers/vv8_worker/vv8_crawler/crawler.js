@@ -7,8 +7,8 @@ const pupp = require('puppeteer');
 const fs = require( 'fs' );
 // Tuning parameters
 // Per Juestock et al. 30s + 15s for page load
-const DEFAULT_NAV_TIME = 180;
-const DEFAULT_LOITER_TIME = 10;
+const DEFAULT_NAV_TIME = 300;
+const DEFAULT_LOITER_TIME = 15;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -30,7 +30,7 @@ const triggerFocusBlurEvent = async (page) => {
       }, input);
 
       // Wait for the element to be visible and clickable
-      await page.waitForSelector('input', { visible: true });
+      await page.waitForSelector('input', { visible: true, timeout: 1500});
 
       // Click the element
       await input.click();
@@ -232,6 +232,21 @@ const configureConsentOMatic = async (browser) => {
             let devTab = document.querySelector('.debug');
             devTab.click()
             //Enable the debug log if not already enabled 
+            let debugClicksSlider = document.querySelector('[data-name=debugClicks]')
+            if (debugClicksSlider.className !== 'active') {
+                debugClicksSlider.click()
+            }
+
+            let skipHideMethodSlider = document.querySelector('[data-name=skipHideMethod]')
+            if (skipHideMethodSlider.className !== 'active') {
+                skipHideMethodSlider.click()
+            }
+
+            let dontHideProgressDialogSlider = document.querySelector('[data-name=dontHideProgressDialog]')
+            if (dontHideProgressDialogSlider.className !== 'active') {
+                dontHideProgressDialogSlider.click()
+            }
+            
             let debugLogSlider = document.querySelector('[data-name=debugLog]')
             if (debugLogSlider.className !== 'active') {
                 debugLogSlider.click()
@@ -254,13 +269,6 @@ const registerConsentBannerDetector = async (page) => {
 
             if (msg.text() === '') { return }
     
-            message = {
-                // time: logging.currentTime(),
-                text: msg.text(),
-                type: 'unspecified',
-                // page: currentPage,
-            }
-    
             const text = msg.text()
             console.log(`- Console message: ${text}, [${msg.location().url}]`)
     
@@ -268,18 +276,17 @@ const registerConsentBannerDetector = async (page) => {
                 let matches = (/CMP Detected: (?<cmpName>.*)/).exec(text)
                 if (matches) {
                     console.log(`- CMP found (${matches.groups.cmpName})`, worker)
-                    message.type = 'positive'
-                    message.cmp = matches.groups.cmpName.trim()
                     resolve('Found')
                 } else {
                     let matches = (/^(?<cmpName>.*) - (SAVE_CONSENT|HIDE_CMP|DO_CONSENT|OPEN_OPTIONS|Showing|isShowing\?)$/).exec(text)
                     if (matches) {
+                        console.log('LOOKIE HEREEEEEEE matches:', matches)
+                        // if (matches.contains('SAVE_CONSENT')) {
+                        //     console.log
+                        // }
                         console.log(`- CMP found (${matches.groups.cmpName})`, worker)
-                        message.type = 'positive'
-                        message.cmp = matches.groups.cmpName.trim()
                         resolve('Found')
                     } else if (text.match(/No CMP detected in 5 seconds, stopping engine.*/g)) {
-                        message.type = 'negative'
                         resolve('Not Found')
                     }
                 }
@@ -289,24 +296,14 @@ const registerConsentBannerDetector = async (page) => {
         page.on('console', consoleHandler)
 
         setTimeout(() => {
+            console.log('Removing event listeners')
             page.removeAllListeners('console')
             resolve('Not Found')
-        }, 45000)
+        }, 300000)
     })
     
 }
 
-async function writeFile(content) {
-    await fs.writeFile('filtered_urls.txt', content, 'utf8', (err) => console.error('Error writing to file:', err));
-}
-
-async function closeAllTabs(browser) {
-    const pages = await browser.pages(); // Get all open pages/tabs
-    for (const page of pages) {
-        await page.close(); // Close each page
-    }
-}
-  
 
 // CLI entry point
 function main() {
@@ -366,16 +363,16 @@ function main() {
 
             puppeteer.use(PuppeteerExtraPluginStealth());
             const browser = await puppeteer.launch({
-                headless: true,
+                headless: false,
                 userDataDir: user_data_dir,
                 dumpio: show_log,
                 executablePath: '/opt/chromium.org/chromium/chrome',
                 args: combined_crawler_args,
-                timeout: 180 * 1000,
-                protocolTimeout: 180 * 1000,
+                timeout: 300 * 1000,
+                protocolTimeout: 300 * 1000,
             });
 
-            await configureConsentOMatic(browser)
+            // await configureConsentOMatic(browser)
 
             console.log('Launching new browser tab 1')
 
@@ -388,14 +385,17 @@ function main() {
             try {
                 await har.start({ path: `${uid}.har` });
                 try{
-                    await page.goto(url, {
+                    const navigationPromise = page.goto(url, {
                         timeout: options.navTime * 1000,
                         waitUntil: 'load'
                     });
+                    // const consentBannerPromise = registerConsentBannerDetector(page)
+                    //Wait for the page to load and the consent banner to be triggered
+                    await Promise.all([ navigationPromise])
                     console.log('Page load event is triggered')
                     //Wait for any additional scripts to load
                     await sleep(3000)
-                    await triggerEventHandlers(page);
+                    await triggerEventHandlers(page)
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);
                 } catch (ex) {
