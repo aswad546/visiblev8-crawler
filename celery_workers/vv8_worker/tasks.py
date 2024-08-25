@@ -66,6 +66,7 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig):
         cwd=wd_path,
     )
     try:
+        print(config['hard_timeout'])
         ret_code = crawler_proc.wait(timeout=config['hard_timeout'])
     except sp.TimeoutExpired as _:
         print('Browser process forcibly killed due to timeout being exceeded')

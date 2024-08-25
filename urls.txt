@@ -7,13 +7,14 @@ https://app.chime.com/login
 https://id.biltrewards.com/login/enter-email/
 https://www.cibconline.cibc.com/ebm-resources/online-banking/client/index.html#/auth/signon
 https://secure.royalbank.com/statics/login-service-ui/index#/full/signin?_ga=2.261451981.1974375602.1719950939-502857158.1719950939&_gl=1*us5vmf*_gcl_au*MTc1OTUxMjkwMC4xNzE5OTUwOTM5*_ga*NTAyODU3MTU4LjE3MTk5NTA5Mzk.*_ga_89NPCTDXQR*MTcxOTk1MDkzOS4xLjAuMTcxOTk1MDkzOS42MC4wLjA.&LANGUAGE=ENGLISH
-https://internetbanking.tsb.co.uk/personal/logon/login/#/login
 https://banco.itau.co/
 https://www.openbank.com
-https://www.lloydsbank.com/
-https://www.bankofscotland.co.uk/
+https://online.lloydsbank.co.uk/personal/logon/login.jsp
+https://online.bankofscotland.co.uk/personal/logon/login.jsp
 https://interactivefidemo.nudatasecurity.com/signin
 https://www.singaporeair.com/en_UK/us/home?&utm_source=www.nerdydata.com#/book/bookflight
 https://www.wish.com/
 https://www.upwork.com/ab/account-security/login
 https://www.victoriassecret.com/ca/account/signin
+https://www.usbank.com/index.html
+https://www.expedia.ca/login?ckoflag=0&uurl=e3id%3Dredr%26rurl%3D%2F
