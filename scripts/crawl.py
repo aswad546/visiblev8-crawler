@@ -155,5 +155,5 @@ def crawler_parse_args(crawler_arg_parser: argparse.ArgumentParser):
     crawler_arg_parser.add_argument('-ds', '--disable-screenshots', help='Prevents screenshots from being generated', action='store_true')
     crawler_arg_parser.add_argument('-dh', '--disable-har', help='Prevents har files from being generated', action='store_true')
     crawler_arg_parser.add_argument('-dac', '--disable-artifact-collection', help='Prevents artifacts from being uploaded to mongoDB', action='store_true')
-    crawler_arg_parser.add_argument('-t', '--timeout', help='A timeout value that kills the browser after a certain amount of time has elapsed', default=str(10 * 60)) # 10 minutes
+    crawler_arg_parser.add_argument('-t', '--timeout', help='A timeout value that kills the browser after a certain amount of time has elapsed', default=str(20 * 60)) # 20 minutes
     crawler_arg_parser.add_argument('-slc', '--server-load-check', help='Check if the server is overloaded before submitting a new task', action='store_true')
