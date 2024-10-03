@@ -7,7 +7,7 @@ const pupp = require('puppeteer');
 const fs = require( 'fs' );
 // Tuning parameters
 // Per Juestock et al. 30s + 15s for page load
-const DEFAULT_NAV_TIME = 300;
+const DEFAULT_NAV_TIME = 600;
 const DEFAULT_LOITER_TIME = 15;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -33,7 +33,7 @@ const triggerFocusBlurEvent = async (page) => {
       await page.waitForSelector('input', { visible: true, timeout: 1500});
 
       // Click the element
-      await input.click();
+      await input.click({timeout:0});
       console.log('Clicked input element');
 
       // Optionally wait a bit between clicks
@@ -69,16 +69,16 @@ const triggerMouseEvents = async (page) => {
         const box = await body[0].boundingBox();
 
         // Mouse move to the element
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {timeout: 60000});
 
         // Mouse down event
-        await page.mouse.down();
+        await page.mouse.down({timeout: 60000});
 
         // Mouse up event
-        await page.mouse.up();
+        await page.mouse.up({timeout: 60000});
 
         // Mouse enter event doesn't directly exist, but moving the mouse to the element simulates it
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {timeout: 60000});
     } catch (e) {
         console.log('Error occured while trying to trigger mousemove event: ' + e);
     }
@@ -106,15 +106,29 @@ const triggerScrollEvent = async (page) => {
     const scrollStep = 100; // 100 px per step
     const scrollInterval = 100; // ms between each scroll
     let lastPosition = 0;
-    const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+    let newPosition = 0;
 
-    while (lastPosition <= scrollHeight) {
-        await page.evaluate((step) => window.scrollBy(0, step), scrollStep);
-        lastPosition += scrollStep;
-        await sleep(scrollInterval) // Wait for a moment before next scroll
+    while (true) {
+        newPosition = await page.evaluate((step) => {
+            window.scrollBy(0, step);
+            return window.pageYOffset;  // Get the new scroll position
+        }, scrollStep);
+
+        // If no more scrolling is possible, break the loop
+        if (newPosition === lastPosition) {
+            break;
+        }
+
+        lastPosition = newPosition;
+        await sleep(scrollInterval);  // Wait before the next scroll
     }
 
-    await page.mouse.wheel({ deltaY: -100 }); 
+    // Optionally scroll up or down using mouse if necessary
+    try {
+        await page.mouse.wheel({ deltaY: -100, timeout: 0 });  // Ensure enough timeout if mouse interaction is needed
+    } catch (error) {
+        console.error("Mouse wheel error:", error);
+    }
 }
 
 const triggerWindowResize = async (page) => {
@@ -314,8 +328,8 @@ function main() {
                     '--enable-logging=stderr',
                     '--enable-automation',
                     //'--v=1'
-                    '--disable-extensions-except=/app/node/consent-o-matic',
-                    '--load-extension=/app/node/consent-o-matic',
+                    // '--disable-extensions-except=/app/node/consent-o-matic',
+                    // '--load-extension=/app/node/consent-o-matic',
                 ];
     const crawler_args = process.argv.slice(5);
 
@@ -363,13 +377,13 @@ function main() {
 
             puppeteer.use(PuppeteerExtraPluginStealth());
             const browser = await puppeteer.launch({
-                headless: false,
+                headless: true,
                 userDataDir: user_data_dir,
                 dumpio: show_log,
                 executablePath: '/opt/chromium.org/chromium/chrome',
                 args: combined_crawler_args,
-                timeout: 300 * 1000,
-                protocolTimeout: 300 * 1000,
+                timeout: 600 * 1000,
+                protocolTimeout: 600 * 1000,
             });
 
             // await configureConsentOMatic(browser)
@@ -394,7 +408,7 @@ function main() {
                     await Promise.all([ navigationPromise])
                     console.log('Page load event is triggered')
                     //Wait for any additional scripts to load
-                    await sleep(3000)
+                    await sleep(4000)
                     await triggerEventHandlers(page)
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);
@@ -408,7 +422,7 @@ function main() {
                     }
                 }
                 if ( !options.disable_screenshots )
-                    await page.screenshot({path: `./${uid}.png`, fullPage: true });
+                    await page.screenshot({path: `./${uid}.png`, fullPage: true, timeout: 0 });
 
                     
             } catch (ex) {
