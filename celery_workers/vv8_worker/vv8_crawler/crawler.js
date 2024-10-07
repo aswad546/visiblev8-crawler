@@ -388,7 +388,7 @@ function main() {
 
             // await configureConsentOMatic(browser)
 
-            console.log('Launching new browser tab 1')
+            console.log('Launching new browser')
 
             const page = await browser.newPage( { viewport: null } );
             console.log('Created new page')
@@ -415,9 +415,10 @@ function main() {
                 } catch (ex) {
                     if ( ex instanceof TimeoutError ) {
                         console.log('TIMEOUT OCCURED WHILE VISITING: ' + url)
-                        await sleep(options.loiterTime * 1000 * 2);
+                        // await sleep(options.loiterTime * 1000 * 2);
+                        throw ex;
                     } else {
-                        console.log(`Error occured ${ex}`)
+                        console.log(`Error occured ${ex} while visiting: ` + url)
                         throw ex;
                     }
                 }
