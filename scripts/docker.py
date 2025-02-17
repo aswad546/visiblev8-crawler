@@ -4,19 +4,19 @@ import local_data_store
 import os
 
 def wakeup(data_directory: str):
-    proc = sbp.run(['docker', 'compose', 'start'], cwd=data_directory)
+    proc = sbp.run(['docker-compose', 'start'], cwd=data_directory)
     if proc.returncode != 0:
         print('Failed to wake up vv8-crawler server')
         os._exit(-1)
 
 def shutdown(data_directory: str):
-    proc = sbp.run(['docker', 'compose', 'stop'], cwd=data_directory)
+    proc = sbp.run(['docker-compose', 'stop'], cwd=data_directory)
     if proc.returncode != 0:
         print('Failed to shutdown vv8-crawler server')
         os._exit(-1)
 
 def remove(data_directory: str):
-    proc = sbp.run(['docker', 'compose', 'down'], cwd=data_directory)
+    proc = sbp.run(['docker-compose', 'down'], cwd=data_directory)
     if proc.returncode != 0:
         print('Failed to remove vv8-crawler server')
         os._exit(-1)
@@ -36,7 +36,7 @@ def create(data_directory: str):
         os._exit(-1)
 
 def follow_logs(data_directory: str):
-    proc = sbp.run(['docker', 'compose', 'logs', '-f'], cwd=data_directory)
+    proc = sbp.run(['docker-compose', 'logs', '-f'], cwd=data_directory)
     if proc.returncode != 0:
         print('Failed to follow logs of vv8-crawler server')
         os._exit(-1)
