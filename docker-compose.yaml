@@ -57,7 +57,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: vv8
     command: --wiredTigerCacheSizeGB 2.0
     ports:
-      - 27017:27017
+      - 27018:27017
     restart: unless-stopped
     volumes:
       - ./mongo/data:/data/db
