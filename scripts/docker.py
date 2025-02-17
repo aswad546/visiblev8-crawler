@@ -30,7 +30,7 @@ def create(data_directory: str):
     if pull_proc.returncode != 0:
         print('Failed to pull latest images for visiblev8 postprocessors for vv8-crawler server')
         os._exit(-1)
-    up_proc = sbp.run(['docker', 'compose', '-f', 'docker-compose.yaml', '--env-file', '.env', 'up', '--build', '-d', '-V', '--force-recreate'], cwd=data_directory)
+    up_proc = sbp.run(['docker-compose', '-f', 'docker-compose.yaml', '--env-file', '.env', 'up', '--build', '-d', '-V', '--force-recreate'], cwd=data_directory)
     if up_proc.returncode != 0:
         print('Failed to create vv8-crawler server')
         os._exit(-1)
