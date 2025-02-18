@@ -7,6 +7,8 @@ import time
 import multiprocessing as m
 from typing import List, Optional, TypedDict
 from bson import ObjectId
+import json
+
 
 from vv8_worker.app import celery_app
 from vv8_worker.config.mongo_config import GridFSTask
@@ -30,7 +32,7 @@ def remove_entry(filepath):
 
 
 @celery_app.task(base=GridFSTask, bind=True, name='vv8_worker.process_url')
-def process_url(self, url: str, submission_id: str, config: CrawlerConfig):
+def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actions=None, scan_domain=None):
     print(f'vv8_worker process_url: url: {url}, submission_id: {submission_id}')
     start = time.perf_counter()
     crawler_path = os.path.join('/app', 'node/crawler.js')
@@ -62,7 +64,8 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig):
             crawler_path,
             'visit',
             url,
-            str(submission_id)] + config['crawler_args'],
+            str(submission_id)
+        ] + config['crawler_args'] + ([json.dumps(actions)] if actions else []),
         cwd=wd_path,
     )
     try:

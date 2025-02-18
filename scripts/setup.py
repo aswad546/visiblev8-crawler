@@ -10,6 +10,7 @@ import subprocess as sbp
 import shutil
 
 def setup(args: argparse.Namespace):
+    print('Going here')
     url = 'http://localhost:4000'
     server_type = None
     instance_count = 1
@@ -24,6 +25,7 @@ def setup(args: argparse.Namespace):
             (url, server_type, instance_count) = setup_local(connect_db=True)
         else:
             (url, server_type) = setup_remote()
+    print('Watch this shit')
     local_data_store.setup(url, server_type, instance_count)
 
 
@@ -31,7 +33,7 @@ def setup_local(connect_db=False):
     print('setting up local server')
     is_current_directory = Prompt.ask('Is your current directory the vv8-crawler repository? (y/n)', choices=['y', 'n'], default='y')
     if is_current_directory == 'y':
-        instance_count = Prompt.ask('How many instances of browsers do you want to run?', default=f'{os.cpu_count() * 4}')
+        instance_count = Prompt.ask('How many instances of browsers do you want to run?', default=f'{os.cpu_count() * 3}')
         build_postprocessors = Prompt.ask('Do you want to build the postprocessors? (y/n)', choices=['y', 'n'], default='n')
         if build_postprocessors == 'y':
             if not os.path.exists('./celery_workers/visiblev8'):
