@@ -30,9 +30,18 @@ def setup(hostname: str, server_type: str = 'local', instance_count: int = 1):
         os._exit(-1)
     conn = sqlite3.connect(config_database_path)
     db = conn.cursor()
+    db.execute('DROP TABLE IF EXISTS config')
     db.execute('CREATE TABLE config (config TEXT)') # TEXT --> JSON
     db.execute('INSERT INTO config (config) VALUES (?)', (json.dumps({ 'hostname': hostname, 'server_type': server_type, 'instance_count': instance_count }),))
-    db.execute('CREATE TABLE submissions (submission_id TEXT NOT NULL PRIMARY KEY, url TEXT, start_time timestamp)')
+    db.execute('DROP TABLE IF EXISTS submissions')
+    db.execute('''CREATE TABLE submissions (
+        submission_id TEXT NOT NULL PRIMARY KEY,
+        url TEXT NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        scan_domain TEXT,
+        actions JSON
+    )''')
+
     conn.commit()
 
 def help():

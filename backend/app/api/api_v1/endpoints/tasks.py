@@ -93,6 +93,8 @@ class UrlSubmitRequestModel(BaseModel):
         and whether or not we need to rerun it ready to return to the frontend.
     '''
     url: str
+    actions: Optional[List[str]] = None
+    scan_domain: Optional[str] = None
     rerun: Optional[bool] = False
     crawler_args: Optional[List[str]] = []
     disable_har: Optional[bool] = False
@@ -128,7 +130,106 @@ class UrlStatusResponseModel:
 @dataclass
 class UrlStatusRequestModel:
     url: str
+    
 
+
+@router.post('/urlsubmit-actions', response_model=UrlSubmitResponseModel)
+async def post_url_submit_with_actions(request: UrlSubmitRequestModel):
+    url = request.url
+    actions = request.actions
+    rerun = request.rerun
+    scan_domain = request.scan_domain
+    if not await is_url_valid(url):
+        raise HTTPException(status_code=400, detail='Invalid URL')
+    submission_id = None
+    cached = False
+    with sql_session() as session:
+        submission = None
+        if not rerun:
+            # If not rerun we need to check for a cached version of this url
+            submission = session.query(Submission.id).filter(Submission.url == url).first()
+            if submission is not None:
+                submission_id = submission[0].id
+                cached = True
+                return UrlSubmitResponseModel(cached, submission_id)
+        if rerun or submission_id is None:
+            submission_id = str(uuid())
+            celery_req: AsyncResult = None
+            mongo_id = None
+            # do mongo stuff
+            mongo_id = mongo_db['vv8_logs'].insert_one({'url': request.url}).inserted_id
+            if request.parser_config is not None:
+                parserconfigcelery = copy_from_request_to_celery(request.parser_config)
+                parserconfigcelery.mongo_id = str(mongo_id)
+                log_parser_uid = str(uuid())
+                celery_req = celery_client.send_task(
+                    name='vv8_worker.process_url',
+                    kwargs={
+                        'url': url,
+                        'actions': actions,
+                        'scan_domain': scan_domain,
+                        'submission_id': submission_id,
+                        'config': {
+                            'mongo_id': str(mongo_id),
+                            'disable_har': request.disable_har,
+                            'disable_screenshot': request.disable_screenshot,
+                            'disable_artifact_collection': request.disable_artifact_collection,
+                            'crawler_args': request.crawler_args,
+                            'delete_log_after_parsing': request.parser_config.delete_log_after_parsing,
+                            'hard_timeout': request.hard_timeout
+                        }
+                    },
+                    queue="crawler",
+                    chain=[
+                        signature('log_parser_worker.parse_log',
+                            kwargs={
+                                'submission_id': submission_id,
+                                'config': parserconfigcelery.dict()
+                                },
+                            queue="log_parser"
+                        ).set(task_id=log_parser_uid)
+                    ])
+                submission = Submission(
+                    id=submission_id,
+                    url=url,
+                    actions=actions,
+                    scan_domain=scan_domain,
+                    start_time=datetime.now(),
+                    vv8_req_id=celery_req.id,
+                    log_parser_req_id=log_parser_uid,
+                    mongo_id=str(mongo_id),
+                    postprocessor_used=request.parser_config.parser,
+                    postprocessor_output_format=request.parser_config.output_format,
+                    postprocessor_delete_log_after_parsing=request.parser_config.delete_log_after_parsing,
+                    crawler_args=request.crawler_args)
+            else:
+                celery_req = celery_client.send_task(
+                    name='vv8_worker.process_url',
+                    kwargs={
+                        'url': url,
+                        'actions': actions,
+                        'submission_id': submission_id,
+                        'config': {
+                            'mongo_id': str(mongo_id),
+                            'disable_har': request.disable_har,
+                            'disable_screenshot': request.disable_screenshot,
+                            'disable_artifact_collection': request.disable_artifact_collection,
+                            'crawler_args': request.crawler_args,
+                            'delete_log_after_parsing': False,
+                            'hard_timeout': request.hard_timeout
+                        }
+                    },
+                    queue="crawler")
+                submission = Submission(
+                    id=submission_id,
+                    url=url, start_time=datetime.now(),
+                    actions=actions,
+                    vv8_req_id=celery_req.id,
+                    mongo_id=str(mongo_id),
+                    crawler_args=request.crawler_args)
+            session.add(submission)
+            session.commit()
+            return UrlSubmitResponseModel(cached, submission_id)
 
 # Handles processing url submission and returns submission id
 @router.post('/urlsubmit', response_model=UrlSubmitResponseModel)

@@ -55,6 +55,8 @@ class ScriptFlow(Base):
     __tablename__ = 'script_flow'
     id = Column(Integer, primary_key=True)
     isolate = Column(Text, nullable=False)
+    sha256 = Column(LargeBinary, nullable=False)
+    origin_url = Column(Text)
     visiblev8 = Column(Boolean, nullable=False)
     code = Column(Text, nullable=False)
     first_origin = Column(Text)

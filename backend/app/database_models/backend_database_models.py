@@ -1,7 +1,8 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import ARRAY, String, Boolean, Text, TIMESTAMP
+from sqlalchemy import ARRAY, String, Boolean, Text, TIMESTAMP, JSON
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
+from typing import Optional, List
 
 
 class Base(DeclarativeBase):
@@ -13,6 +14,8 @@ class Submission(Base):
     start_time: Mapped[str] = mapped_column(TIMESTAMP, nullable=False)
     end_time: Mapped[str] = mapped_column(TIMESTAMP, nullable=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
+    scan_domain: Mapped[str] = mapped_column(Text, nullable=True)
+    actions: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     postprocessor_delete_log_after_parsing: Mapped[bool] = mapped_column(Boolean, nullable=True)
     postprocessor_used: Mapped[str] = mapped_column(Text, nullable=True)
     postprocessor_output_format: Mapped[str] = mapped_column(Text, nullable=True)

@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS submissions (
     end_time timestamp
         DEFAULT NULL,
     url TEXT NOT NULL,
+    scan_domain TEXT DEFAULT NULL,
+    actions JSON DEFAULT NULL,
     vv8_req_id TEXT NOT NULL,
     log_parser_req_id TEXT,
     postprocessor_used TEXT,

@@ -331,8 +331,34 @@ function main() {
                     // '--disable-extensions-except=/app/node/consent-o-matic',
                     // '--load-extension=/app/node/consent-o-matic',
                 ];
-    const crawler_args = process.argv.slice(5);
+    // Remove the first few elements: [node, script.js, command, URL, uid]
+  const extraArgs = process.argv.slice(5);
+  
+  // For example, if we assume the actions JSON is provided as the last extra argument,
+  // we can try to parse it.
+  let actions = null;
+  if (extraArgs.length > 0) {
+    try {
+      // Try to parse the last extra argument as JSON.
+      const parsed = JSON.parse(extraArgs[extraArgs.length - 1]);
+      // Only use it if it's a non-empty array or a non-empty object.
+      if ((Array.isArray(parsed) && parsed.length > 0) ||
+          (typeof parsed === 'object' && Object.keys(parsed).length > 0)) {
+        actions = parsed;
+        // Remove it from extraArgs so that crawler_args don't include it.
+        extraArgs.pop();
+      }
+    } catch (err) {
+      // If parsing fails, then maybe no actions JSON was provided.
+      // You can log an error if needed.
+      console.error("No valid actions JSON provided, or it's empty.");
+    }
+  }
+  
+  // Now, extraArgs contains your crawler arguments.
+  const crawler_args = default_crawler_args.concat(extraArgs);
 
+    
     program
         .version('1.0.0');
     program

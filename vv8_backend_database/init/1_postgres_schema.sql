@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS script_flow (
 	visiblev8 BOOLEAN NOT NULL, -- Is the script loaded by the browser/injected by VisibleV8 (in most cases you want to ignore scripts if this is true)
 	code TEXT NOT NULL,
 	first_origin TEXT,
+	origin_url TEXT,
+	sha256 BYTEA,
 	url TEXT,
 	apis TEXT[] NOT NULL,	-- All APIs loaded by a script in the order they were executed
 	evaled_by INT -- REFERENCES script_flow (id)
