@@ -199,6 +199,44 @@ const triggerTouchEvents = async (page) => {
     
 }
 
+async function fillInputFields(page) {
+    const inputElements = await page.$$('input');
+  
+    for (let input of inputElements) {
+      try {
+        await input.evaluate((element) => element.scrollIntoView());
+        await sleep(Math.floor(Math.random() * 500) + 500); // Random delay after scrolling
+  
+        const isVisible = await input.evaluate((element) => {
+          const style = window.getComputedStyle(element);
+          return style && style.visibility !== 'hidden' && style.display !== 'none';
+        });
+  
+        const isReadOnly = await input.evaluate((element) => element.hasAttribute('readonly'));
+        const isDisabled = await input.evaluate((element) => element.hasAttribute('disabled'));
+  
+        if (isVisible && !isReadOnly && !isDisabled) {
+          await Promise.race([
+            input.type('aa', { delay: 100 }),
+            new Promise((_, reject) => setTimeout(() => reject('Timeout'), 3000)),
+          ]);
+          // console.log('Successfully filled input field');
+        } else {
+          // console.log('Skipping non-interactable input field.');
+        }
+      } catch (e) {
+        // console.log('Skipping input field due to timeout or other error:', e.message);
+      }
+    }
+  
+    await page.evaluate(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    await sleep(Math.floor(Math.random() * 500) + 500); // Random delay after scrolling to top
+  
+    await sleep(1000);
+  }
+
 const triggerEventHandlers = async (page) => {
     await sleep(1000) 
     console.log('Triggering the click event')
@@ -417,6 +455,11 @@ function main() {
             console.log('Launching new browser')
 
             const page = await browser.newPage( { viewport: null } );
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+            await page.setViewport({ width: 1280, height: 800 });
+            await page.evaluateOnNewDocument(() => {
+                delete navigator.__proto__.webdriver;
+            });
             console.log('Created new page')
             const har = new PuppeteerHar(page);
             const url = new URL(input_url);
