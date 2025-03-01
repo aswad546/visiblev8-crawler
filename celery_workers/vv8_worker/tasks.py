@@ -58,14 +58,16 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actio
         config['crawler_args'].append('--disable-screenshot')
     print(config['crawler_args'])
     ret_code = -1
+    print(f"Lookie here {actions}")
+    print(f"is actions null: {actions == None}"), 
     crawler_proc = sp.Popen(
         [
             'node',
             crawler_path,
             'visit',
-            url,
+            url if not actions else 'http://' + scan_domain, # Use scan_domain as start point for crawl if actions exist
             str(submission_id)
-        ] + config['crawler_args'] + ([json.dumps(actions)] if actions else []),
+        ] + config['crawler_args'] + (['--actions', json.dumps(actions)] if actions else []),
         cwd=wd_path,
     )
     try:

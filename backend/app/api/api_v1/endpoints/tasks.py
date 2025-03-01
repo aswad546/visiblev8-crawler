@@ -9,7 +9,7 @@ import os
 import urllib.parse
 from datetime import datetime
 from multiprocessing.pool import AsyncResult
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from uuid import uuid4 as uuid
 
 from app.core.celery_app import celery_client
@@ -93,7 +93,7 @@ class UrlSubmitRequestModel(BaseModel):
         and whether or not we need to rerun it ready to return to the frontend.
     '''
     url: str
-    actions: Optional[List[str]] = None
+    actions: Optional[List[Any]] = None
     scan_domain: Optional[str] = None
     rerun: Optional[bool] = False
     crawler_args: Optional[List[str]] = []
