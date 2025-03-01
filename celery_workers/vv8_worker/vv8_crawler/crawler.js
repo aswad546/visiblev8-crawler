@@ -356,6 +356,121 @@ const registerConsentBannerDetector = async (page) => {
     
 }
 
+/**
+ * Given a selectOptions array (each element expected to have a "value" property),
+ * find all select elements on the page in order and set their value to the corresponding
+ * value from the array.
+ * If there are fewer select elements than provided options, only the matching number are set.
+ * Any errors encountered are logged using console.error.
+ */
+async function selectOptions(page, selectOptionsArray) {
+    try {
+      const selects = await page.$$('select');
+      if (!selects || selects.length === 0) {
+        console.error('No select elements found on the page.');
+        return;
+      }
+      // Set values for as many select elements as we have values
+      const count = Math.min(selects.length, selectOptionsArray.length);
+      for (let i = 0; i < count; i++) {
+        try {
+          await selects[i].evaluate((selectEl, newValue) => {
+            try {
+              selectEl.value = newValue;
+              selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (innerError) {
+              console.error('Error setting value on select element:', innerError);
+            }
+          }, selectOptionsArray[i].value);
+        } catch (err) {
+          console.error(`Error processing select element index ${i}:`, err);
+        }
+      }
+    } catch (e) {
+      console.error('Error in selectOptions function:', e);
+    }
+  }
+
+ /**
+ * Executes the given list of actions on the page.
+ * For each action that has a valid clickPosition (x, y),
+ * it moves the mouse to that coordinate, clicks, and then waits
+ * for any navigation or new tab. If a new page is detected, the function
+ * switches to that page.
+ * Errors are logged using console.error.
+ *
+ * @param {object} page - The Puppeteer page object.
+ * @param {Array} actions - The list of action objects.
+ * @returns {object} - The final page object (in case it changed due to navigation or new tab).
+ */
+async function executeActions(page, actions) {
+    for (let action of actions) {
+      if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
+        console.error("Skipping action due to missing or invalid clickPosition:", action);
+        continue;
+      }
+  
+      const { x, y } = action.clickPosition;
+      try {
+        // Move the mouse to the specified coordinates
+        await page.mouse.move(x, y, { delay: 100 });
+        await sleep(500);
+        
+        // Click at the specified coordinates
+        await page.mouse.click(x, y);
+        console.log(`Clicked at (${x}, ${y})`);
+  
+        // Wait for navigation or new tab after the click
+        const newPage = await detectNavigationOrNewTab(page);
+        if (newPage && newPage !== page) {
+          console.log('Navigation or new tab detected after click. Switching to new page.');
+          await page.close();
+          page = newPage;
+          await page.bringToFront();
+        }
+        // Wait a bit after the click for any effects to settle
+        await sleep(1000);
+      } catch (err) {
+        console.error(`Error executing action at (${x}, ${y}):`, err);
+      }
+    }
+    return page;
+  }
+  
+
+/**
+ * Detects if a navigation or new tab has been opened after a click.
+ * Returns the new page if detected, or null if no navigation/new tab occurred within the timeout.
+ */
+async function detectNavigationOrNewTab(page) {
+    const timeout = 10000;
+    const browser = page.browser();
+  
+    return Promise.race([
+      page.waitForNavigation({ timeout }).then(() => {
+        console.log('Navigation detected.');
+        return page;
+      }).catch(() => null),
+      new Promise((resolve) => {
+        const listener = async (target) => {
+          if (target.opener() === page.target()) {
+            const newPage = await target.page();
+            await newPage.bringToFront();
+            console.log('New tab detected.');
+            browser.off('targetcreated', listener);
+            resolve(newPage);
+          }
+        };
+        browser.on('targetcreated', listener);
+        setTimeout(() => {
+          browser.off('targetcreated', listener);
+          resolve(null);
+        }, timeout);
+      })
+    ]);
+  }
+  
+
 
 // CLI entry point
 function main() {
@@ -369,32 +484,9 @@ function main() {
                     // '--disable-extensions-except=/app/node/consent-o-matic',
                     // '--load-extension=/app/node/consent-o-matic',
                 ];
-    // Remove the first few elements: [node, script.js, command, URL, uid]
-  const extraArgs = process.argv.slice(5);
-  
-  // For example, if we assume the actions JSON is provided as the last extra argument,
-  // we can try to parse it.
-  let actions = null;
-  if (extraArgs.length > 0) {
-    try {
-      // Try to parse the last extra argument as JSON.
-      const parsed = JSON.parse(extraArgs[extraArgs.length - 1]);
-      // Only use it if it's a non-empty array or a non-empty object.
-      if ((Array.isArray(parsed) && parsed.length > 0) ||
-          (typeof parsed === 'object' && Object.keys(parsed).length > 0)) {
-        actions = parsed;
-        // Remove it from extraArgs so that crawler_args don't include it.
-        extraArgs.pop();
-      }
-    } catch (err) {
-      // If parsing fails, then maybe no actions JSON was provided.
-      // You can log an error if needed.
-      console.error("No valid actions JSON provided, or it's empty.");
-    }
-  }
-  
-  // Now, extraArgs contains your crawler arguments.
-  const crawler_args = default_crawler_args.concat(extraArgs);
+    // The raw extra arguments (after the first 5) might include additional crawler arguments
+    let rawArgs = process.argv.slice(5);
+
 
     
     program
@@ -404,10 +496,23 @@ function main() {
         .option( '--headless <headless>', 'Which headless mode to run visiblev8', 'new')
         .option( '--loiter-time <loiter_time>', 'Amount of time to loiter on a webpage', DEFAULT_LOITER_TIME)
         .option( '--nav-time <nav_time>', 'Amount of time to wait for a page to load', DEFAULT_NAV_TIME)
+        .option('--actions <actions>', 'JSON formatted actions', "")  // Added actions option
         .allowUnknownOption(true)
         .description("Visit the given URL and store it under the UID, creating a page record and collecting all data")
         .action(async function(input_url, uid, options) {
-            let combined_crawler_args = default_crawler_args.concat(crawler_args);
+            // Remove any "--actions" flag and its value from the raw arguments.
+            // This ensures that the extra arguments contain only crawler options.
+            let filteredArgs = [];
+            for (let i = 0; i < rawArgs.length; i++) {
+                if (rawArgs[i] === '--actions') {
+                i++; // Skip the next argument (the JSON string)
+                } else {
+                filteredArgs.push(rawArgs[i]);
+                }
+            }
+
+
+            let combined_crawler_args = default_crawler_args.concat(filteredArgs);
             let show_log = false;
             const user_data_dir = `/tmp/${uid}`;
 
@@ -439,6 +544,19 @@ function main() {
                 and args: ${combined_crawler_args.join(' ')} to crawl ${input_url}`)
             }
 
+                // Parse the actions JSON if provided via the --actions option.
+            let actions = null;
+            console.log(`actions: ${options.actions}`)
+            if (options.actions) {
+                try {
+                    actions = JSON.parse(options.actions);
+                    console.log("Actions received:", actions);
+                } catch (err) {
+                    console.error("Invalid JSON provided for --actions" + err);
+                    process.exit(1);
+                }
+            }
+
             puppeteer.use(PuppeteerExtraPluginStealth());
             const browser = await puppeteer.launch({
                 headless: true,
@@ -451,7 +569,7 @@ function main() {
             });
 
             // await configureConsentOMatic(browser)
-
+ 
             console.log('Launching new browser')
 
             const page = await browser.newPage( { viewport: null } );
@@ -472,12 +590,48 @@ function main() {
                         timeout: options.navTime * 1000,
                         waitUntil: 'load'
                     });
+
                     // const consentBannerPromise = registerConsentBannerDetector(page)
                     //Wait for the page to load and the consent banner to be triggered
                     await Promise.all([ navigationPromise])
                     console.log('Page load event is triggered')
                     //Wait for any additional scripts to load
                     await sleep(4000)
+
+
+                    /**
+                     * {
+                        "id":1,
+                        "url":"https://www.hancockwhitney.com/",
+                        "actions":[
+                            {
+                                "selectOptions":[
+                                {
+                                    "identifier":"account-select-17020485599316",
+                                    "value":"Select an Account Type"
+                                },
+                                {
+                                    "identifier":"account-select-169766242632384",
+                                    "value":"Select an Account Type"
+                                },
+                                {
+                                    "identifier":"dropdown-content",
+                                    "value":"content2"
+                                }
+                                ]
+                            }
+                        ],
+                        "scan_domain":"www.hancockwhitney.com"
+                    },
+                     */
+                    // Only execute actions if there is atleast one action in the input actions
+                    // Example input can be found above for actions
+                    if (actions && actions.length > 1) {
+                        console.log('Selecting Options')
+                        await selectOptions(page, actions.shift());
+                        console.log('Executing Actions')
+                        page = await executeActions(page, actions);
+                    }
                     await triggerEventHandlers(page)
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);

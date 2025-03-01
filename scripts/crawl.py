@@ -65,7 +65,12 @@ class Crawler:
                 raise ValueError("No JSON payload provided")
             
             app.logger.info("Received login candidates: %s", data)
-            crawler_inst.crawl_with_actions(data, data_store)
+
+            candidates = data.get("candidates")
+            if not candidates:
+                raise ValueError("No candidates provided in the payload")
+
+            crawler_inst.crawl_with_actions(candidates, data_store)
             
             # TODO: Process or store the data as needed.
             # For example, you might save it to a database, or queue it for further processing.
@@ -130,7 +135,7 @@ class Crawler:
                         },
                     })
             else:
-                r = requests.post(  f'http://{self.data_store.hostname}:4000/api/v1/urlsubmit', json={
+                r = requests.post(f'http://{self.data_store.hostname}:4000/api/v1/urlsubmit', json={
                     'url': url,
                     'rerun': True,
                     'disable_screenshots': self.disable_screenshots,
@@ -181,7 +186,7 @@ class Crawler:
                     'output_format': self.output_format,
                     }
                 })
-            r = requests.post(  f'http://{data_store.hostname}:4000/api/v1/urlsubmit-actions', json={
+            r = requests.post(f'http://{data_store.hostname}:4000/api/v1/urlsubmit-actions', json={
                 'url': url,
                 'actions': actions,
                 'scan_domain': scan_domain,
@@ -198,9 +203,7 @@ class Crawler:
                     },
                 })
             submission_id = r.json()['submission_id']
-            print(submission_identifiers)
             submission_identifiers.append((submission_id, url, datetime.now(), json.dumps(actions) if actions is not None else None, scan_domain))
-            print(submission_identifiers)
         data_store.db.executemany('INSERT INTO submissions (submission_id, url, start_time, actions, scan_domain) VALUES (?, ?, ?, ?, ?)', submission_identifiers)
         data_store.commit()
         data_store.conn.close()
