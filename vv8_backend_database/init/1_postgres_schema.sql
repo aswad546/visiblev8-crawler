@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS script_flow (
 	origin_url TEXT,
 	sha256 BYTEA,
 	url TEXT,
+	submission_id VARCHAR(36),
 	apis TEXT[] NOT NULL,	-- All APIs loaded by a script in the order they were executed
 	evaled_by INT -- REFERENCES script_flow (id)
 );

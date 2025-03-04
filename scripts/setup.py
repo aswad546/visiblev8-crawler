@@ -37,7 +37,7 @@ def setup_local(connect_db=False):
         build_postprocessors = Prompt.ask('Do you want to build the postprocessors? (y/n)', choices=['y', 'n'], default='n')
         if build_postprocessors == 'y':
             if not os.path.exists('./celery_workers/visiblev8'):
-                sbp.run(['git', 'clone', 'https://github.com/wspr-ncsu/visiblev8.git', 'celery_workers/visiblev8'])
+                sbp.run(['git', 'clone', 'https://github.com/aswad546/visiblev8.git', 'celery_workers/visiblev8'])
             shutil.copy( 'docker-compose.build.yaml', 'docker-compose.override.yaml' )
             sbp.run(['make', 'docker'], cwd='./celery_workers/visiblev8/post-processor')
         else:
