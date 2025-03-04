@@ -60,7 +60,17 @@ def parse_log(self, output_from_vv8_worker: str, submission_id: str, config: Par
         f.close()
     else:
         print(arguments)
-        postprocessor_proc = sp.Popen(arguments, cwd=logsdir)
+        postprocessor_proc = sp.Popen(
+            arguments,
+            cwd=logsdir,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
+            universal_newlines=True  # so that output is decoded automatically
+        )
+        for line in iter(postprocessor_proc.stdout.readline, ""):
+            print(line, end="")  # Print each line to stdout
+
+        # postprocessor_proc = sp.Popen(arguments, cwd=logsdir)
         postprocessor_proc.wait()
     if config['delete_log_after_parsing']:
         shutil.rmtree(logsdir)

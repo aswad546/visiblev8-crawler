@@ -63,6 +63,7 @@ class ScriptFlow(Base):
     url = Column(Text)
     apis = Column(ARRAY(Text), nullable=False)
     evaled_by = Column(Integer)
+    submission_id = Column(Text)
 
 class FeatureUsage(Base):
     __tablename__ = 'feature_usage'

@@ -70,6 +70,7 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actio
         ] + config['crawler_args'] + (['--actions', json.dumps(actions)] if actions else []),
         cwd=wd_path,
     )
+    timeoutCheck = False
     try:
         print(config['hard_timeout'])
         ret_code = crawler_proc.wait(timeout=config['hard_timeout'])
@@ -77,6 +78,32 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actio
         print('Browser process forcibly killed due to timeout being exceeded')
         sp.run(['pkill', '-P', f'{crawler_proc.pid}'])
         crawler_proc.kill()
+        timeoutCheck = True
+    # Retry a website if it had actions and timed out, instead now try with the main domain
+    actions = None # Put actions to none to use default url 
+    if timeoutCheck == True and actions: 
+        crawler_proc = sp.Popen(
+            [
+                'node',
+                crawler_path,
+                'visit',
+                url if not actions else 'http://' + scan_domain, # Use scan_domain as start point for crawl if actions exist
+                str(submission_id)
+            ] + config['crawler_args'] + (['--actions', json.dumps(actions)] if actions else []),
+            cwd=wd_path,
+        )
+        timeoutCheck = False
+        try:
+            print(config['hard_timeout'])
+            ret_code = crawler_proc.wait(timeout=config['hard_timeout'])
+        except sp.TimeoutExpired as _:
+            print('Browser process forcibly killed due to timeout being exceeded')
+            sp.run(['pkill', '-P', f'{crawler_proc.pid}'])
+            crawler_proc.kill()
+
+
+
+    
     self.update_state(state='PROGRESS', meta={
         'status': 'Uploading artifacts to mongodb'
     })
