@@ -364,6 +364,11 @@ const registerConsentBannerDetector = async (page) => {
  * Any errors encountered are logged using console.error.
  */
 async function selectOptions(page, selectOptionsArray) {
+    if (!selectOptionsArray) {
+        console.log("No select options provided, skipping selection.");
+        return;
+      }
+    
     try {
       const selects = await page.$$('select');
       if (!selects || selects.length === 0) {
@@ -572,7 +577,7 @@ function main() {
  
             console.log('Launching new browser')
 
-            const page = await browser.newPage( { viewport: null } );
+            let page = await browser.newPage( { viewport: null } );
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
             await page.setViewport({ width: 1280, height: 800 });
             await page.evaluateOnNewDocument(() => {
@@ -626,12 +631,23 @@ function main() {
                      */
                     // Only execute actions if there is atleast one action in the input actions
                     // Example input can be found above for actions
-                    if (actions && actions.length > 1) {
-                        console.log('Selecting Options')
-                        await selectOptions(page, actions.shift());
-                        console.log('Executing Actions')
-                        page = await executeActions(page, actions);
-                    }
+                    if (actions && actions.length > 0) {
+                        // Extract the first action object that should contain the selectOptions.
+                        const firstAction = actions.shift();
+                        // If selectOptions is not null, then perform the selection.
+                        if (firstAction.selectOptions !== null) {
+                          console.log('Selecting Options');
+                          await selectOptions(page, firstAction.selectOptions);
+                        } else {
+                          console.log('No select options provided in actions; skipping selection.');
+                        }
+                        // Continue with the remaining actions.
+                        if (actions.length > 0) {
+                          console.log('Executing Actions');
+                          page = await executeActions(page, actions);
+                        }
+                      }
+                      
                     await triggerEventHandlers(page)
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);
