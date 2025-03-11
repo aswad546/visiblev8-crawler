@@ -4,15 +4,32 @@
 # Define JSON payload using a here-document
 read -r -d '' JSON_DATA <<'EOF'
 {
-  "candidates": [
-    {
-      "id": 4,
-      "url": "https://www.ebankstar.bank/",
-      "actions": null,
-      "scan_domain": "www.hancockwhitney.com"
-    }
-  ]
+   "candidates":[
+      {
+         "id":1,
+         "url":"https://cadencebank.com/",
+         "actions":[
+            {
+               "selectOptions":"None"
+            }
+         ],
+         "scan_domain":"www.cadencebank.com"
+      },
+      {
+         "id":2,
+         "url":"https://cadencebank.com/log-in",
+         "actions":"None",
+         "scan_domain":"www.cadencebank.com"
+      },
+      {
+         "id":3,
+         "url":"https://cadencebank.com/personal/digital-banking/online-banking",
+         "actions":"None",
+         "scan_domain":"www.cadencebank.com"
+      }
+   ]
 }
+
 EOF
 
 # Execute the curl POST request
