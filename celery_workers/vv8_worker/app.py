@@ -15,7 +15,13 @@ celery_app = Celery(
 
 celery_app.conf.update(
     result_extended=True,
-    result_expire=1
+    result_expire=1,  # Keep task results for 3 days
+    task_acks_late=True,  # Acknowledge task ONLY after it completes
+    task_reject_on_worker_lost=True,  # Requeue task if worker crashes mid-job
+    broker_transport_options={
+        'visibility_timeout': 120  # Tasks reappear after 5 minutes if not acknowledged
+    }
+
 )
 
 celery_app.conf.task_default_queue = 'default'

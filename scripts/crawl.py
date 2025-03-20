@@ -69,8 +69,11 @@ class Crawler:
             candidates = data.get("candidates")
             if not candidates:
                 raise ValueError("No candidates provided in the payload")
+            task_id = data.get("task_id")
+            if not task_id:
+                raise ValueError("Job has no task id")
 
-            crawler_inst.crawl_with_actions(candidates, data_store)
+            crawler_inst.crawl_with_actions(candidates, task_id, data_store)
             
             # TODO: Process or store the data as needed.
             # For example, you might save it to a database, or queue it for further processing.
@@ -146,7 +149,7 @@ class Crawler:
         self.data_store.db.executemany('INSERT INTO submissions VALUES ( ?, ?, ? )', submission_identifiers)
         self.data_store.commit()
 
-    def crawl_with_actions(self, login_candidates, data_store)-> str:
+    def crawl_with_actions(self, login_candidates, task_id, data_store)-> str:
         r = None
         submission_identifiers = []
         for candidate in login_candidates:
@@ -176,6 +179,7 @@ class Crawler:
                 'scan_domain': scan_domain,
                 'rerun': True,
                 'crawler_args': self.crawler_args,
+                'task_id': task_id,
                 'disable_artifact_collection': self.disable_artifact_collection,
                 'disable_screenshots': self.disable_screenshots,
                 'disable_har': self.disable_har,
@@ -191,6 +195,7 @@ class Crawler:
                 'actions': actions,
                 'scan_domain': scan_domain,
                 'rerun': True,
+                'task_id': task_id,
                 'crawler_args': self.crawler_args,
                 'disable_artifact_collection': self.disable_artifact_collection,
                 'disable_screenshots': self.disable_screenshots,
@@ -203,8 +208,8 @@ class Crawler:
                     },
                 })
             submission_id = r.json()['submission_id']
-            submission_identifiers.append((submission_id, url, datetime.now(), json.dumps(actions) if actions is not None else None, scan_domain))
-        data_store.db.executemany('INSERT INTO submissions (submission_id, url, start_time, actions, scan_domain) VALUES (?, ?, ?, ?, ?)', submission_identifiers)
+            submission_identifiers.append((submission_id, task_id, url, datetime.now(), json.dumps(actions) if actions is not None else None, scan_domain))
+        data_store.db.executemany('INSERT INTO submissions (submission_id, task_id, url, start_time, actions, scan_domain) VALUES (?, ?, ?, ?, ?, ?)', submission_identifiers)
         data_store.commit()
         data_store.conn.close()
 

@@ -94,6 +94,7 @@ class UrlSubmitRequestModel(BaseModel):
     '''
     url: str
     actions: Optional[List[Any]] = None
+    task_id: Optional[str] = None
     scan_domain: Optional[str] = None
     rerun: Optional[bool] = False
     crawler_args: Optional[List[str]] = []
@@ -139,6 +140,7 @@ async def post_url_submit_with_actions(request: UrlSubmitRequestModel):
     actions = request.actions
     rerun = request.rerun
     scan_domain = request.scan_domain
+    task_id = request.task_id
     if not await is_url_valid(url):
         raise HTTPException(status_code=400, detail='Invalid URL')
     submission_id = None
@@ -196,6 +198,7 @@ async def post_url_submit_with_actions(request: UrlSubmitRequestModel):
                     scan_domain=scan_domain,
                     start_time=datetime.now(),
                     vv8_req_id=celery_req.id,
+                    task_id=task_id,
                     log_parser_req_id=log_parser_uid,
                     mongo_id=str(mongo_id),
                     postprocessor_used=request.parser_config.parser,
@@ -222,8 +225,10 @@ async def post_url_submit_with_actions(request: UrlSubmitRequestModel):
                     queue="crawler")
                 submission = Submission(
                     id=submission_id,
-                    url=url, start_time=datetime.now(),
+                    url=url, 
+                    start_time=datetime.now(),
                     actions=actions,
+                    task_id=task_id,
                     vv8_req_id=celery_req.id,
                     mongo_id=str(mongo_id),
                     crawler_args=request.crawler_args)

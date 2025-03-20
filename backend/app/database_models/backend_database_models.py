@@ -16,6 +16,7 @@ class Submission(Base):
     url: Mapped[str] = mapped_column(Text, nullable=False)
     scan_domain: Mapped[str] = mapped_column(Text, nullable=True)
     actions: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    task_id: Mapped[str] = mapped_column(String(36), nullable=False)
     postprocessor_delete_log_after_parsing: Mapped[bool] = mapped_column(Boolean, nullable=True)
     postprocessor_used: Mapped[str] = mapped_column(Text, nullable=True)
     postprocessor_output_format: Mapped[str] = mapped_column(Text, nullable=True)

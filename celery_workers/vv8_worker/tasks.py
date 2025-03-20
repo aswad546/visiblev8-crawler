@@ -81,13 +81,13 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actio
         timeoutCheck = True
     # Retry a website if it had actions and timed out, instead now try with the main domain
     actions = None # Put actions to none to use default url 
-    if timeoutCheck == True and actions: 
+    if (timeoutCheck == True or ret_code != 0) and actions: 
         crawler_proc = sp.Popen(
             [
                 'node',
                 crawler_path,
                 'visit',
-                url if not actions else 'http://' + scan_domain, # Use scan_domain as start point for crawl if actions exist
+                url, # If actions + crawl failed just try to go to the url directly
                 str(submission_id)
             ] + config['crawler_args'] + (['--actions', json.dumps(actions)] if actions else []),
             cwd=wd_path,
@@ -100,8 +100,7 @@ def process_url(self, url: str, submission_id: str, config: CrawlerConfig, actio
             print('Browser process forcibly killed due to timeout being exceeded')
             sp.run(['pkill', '-P', f'{crawler_proc.pid}'])
             crawler_proc.kill()
-
-
+            timeoutCheck = True
 
     
     self.update_state(state='PROGRESS', meta={

@@ -34,8 +34,11 @@ def setup(hostname: str, server_type: str = 'local', instance_count: int = 1):
     db.execute('CREATE TABLE config (config TEXT)') # TEXT --> JSON
     db.execute('INSERT INTO config (config) VALUES (?)', (json.dumps({ 'hostname': hostname, 'server_type': server_type, 'instance_count': instance_count }),))
     db.execute('DROP TABLE IF EXISTS submissions')
-    db.execute('''CREATE TABLE submissions (
+    db.execute('''
+        DROP TABLE IF EXISTS submissions;
+        CREATE TABLE submissions (
         submission_id TEXT NOT NULL PRIMARY KEY,
+        task_id TEXT NOT NULL,
         url TEXT NOT NULL,
         start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         scan_domain TEXT,
