@@ -39,7 +39,7 @@ const triggerFocusBlurEvent = async (page) => {
       // Optionally wait a bit between clicks
     //   await page.waitForTimeout(500);
     } catch (error) {
-      console.error('Error clicking input element:', error);
+      console.log('Error clicking input element');
     }
   }
     //To trigger blur event

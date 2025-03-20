@@ -63,7 +63,9 @@ CREATE TABLE IF NOT EXISTS script_flow (
 	url TEXT,
 	submission_id VARCHAR(36),
 	apis TEXT[] NOT NULL,	-- All APIs loaded by a script in the order they were executed
-	evaled_by INT -- REFERENCES script_flow (id)
+	evaled_by INT, -- REFERENCES script_flow (id)
+	api_status INTEGER,
+	api_error TEXT
 );
 
 -- Feature usage information (for monomorphic callsites)

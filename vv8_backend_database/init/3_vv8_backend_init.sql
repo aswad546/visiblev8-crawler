@@ -2,6 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS submissions (
     id VARCHAR(36) PRIMARY KEY,
+    task_id VARCHAR(36),
     start_time timestamp NOT NULL
         DEFAULT CURRENT_TIMESTAMP,
     end_time timestamp
