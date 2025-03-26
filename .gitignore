@@ -11,8 +11,15 @@ __pycache__/
 # C extensions
 *.so
 
-graphana
-prometheus
+graphana/*
+!graphana
+/prometheus/*
+!/prometheus/
+!/prometheus/prometheus/prometheus.yml
+redis_data/*
+!redis_data
+
+
 # Distribution / packaging
 .Python
 build/

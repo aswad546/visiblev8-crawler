@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']
+  - job_name: 'sso-queue'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['172.17.0.1:15692']
+  - job_name: 'static-queue'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    static_configs:
+    - targets: ['172.17.0.1:15693']
+  - job_name: 'vv8-queue'
+    static_configs:
+      - targets: ['172.17.0.1:9121']  # Redis Exporter's metrics endpoint
+  
