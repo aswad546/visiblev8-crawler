@@ -19,7 +19,7 @@ celery_app.conf.update(
     task_acks_late=True,  # Acknowledge task ONLY after it completes
     task_reject_on_worker_lost=True,  # Requeue task if worker crashes mid-job
     broker_transport_options={
-        'visibility_timeout': 120  # Tasks reappear after 5 minutes if not acknowledged
+        'visibility_timeout': 1800  # Tasks reappear after 5 minutes if not acknowledged
     }
 
 )

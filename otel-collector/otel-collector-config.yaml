@@ -5,6 +5,16 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+        
+  hostmetrics:
+    collection_interval: 10s
+    scrapers:
+      cpu:
+      memory:
+      load:
+      disk:
+      filesystem:
+      network:
 
 processors:
   batch:
@@ -28,14 +38,12 @@ exporters:
     metric_expiration: 180m
     resource_to_telemetry_conversion:
       enabled: true
-  
-  # Replace the jaeger exporter with otlp exporter pointing to Jaeger
-  otlp:
-    endpoint: jaeger:4317
+  # Use otlphttp to send to Jaeger instead of the deprecated jaeger exporter
+  otlp/jaeger:
+    endpoint: http://jaeger:4317
     tls:
       insecure: true
-  
-  # Replace the logging exporter with debug exporter
+  # Debug exporter instead of logging
   debug:
     verbosity: detailed
 
@@ -44,13 +52,11 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [otlp, debug]
-    
+      exporters: [otlp/jaeger, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
       exporters: [prometheus, debug]
-  
   telemetry:
     logs:
       level: info
