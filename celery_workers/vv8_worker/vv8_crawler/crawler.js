@@ -237,28 +237,78 @@ async function fillInputFields(page) {
     await sleep(1000);
   }
 
-const triggerEventHandlers = async (page) => {
-    await sleep(1000) 
-    console.log('Triggering the click event')
-    await triggerClickEvent(page)
-    console.log('Triggering double click event')
-    await triggerDoubleClickEvent(page)
-    console.log('Triggering the focus blur event')
-    await triggerFocusBlurEvent(page)
-    console.log('Triggering mouse events')
-    await triggerMouseEvents(page)
-    console.log('Triggering keyboard events')
-    await triggerKeyEvents(page)
-    console.log('Triggering copy/paste events')
-    await triggerCopyPasteEvents(page)
-    console.log('Triggering scroll/wheel events')
-    await triggerScrollEvent(page)
-    console.log('Triggering resize events')
-    await triggerWindowResize(page)
-    console.log('Triggering orientation events')
-    await triggerOrientationChangeEvents(page)
-    console.log('Triggering touch events')
-    await triggerTouchEvents(page)
+  const triggerEventHandlers = async (page) => {
+    await sleep(1000);
+
+    try {
+        console.log('Triggering the click event');
+        await triggerClickEvent(page);
+    } catch (e) {
+        console.error('Error triggering click event:', e);
+    }
+
+    try {
+        console.log('Triggering double click event');
+        await triggerDoubleClickEvent(page);
+    } catch (e) {
+        console.error('Error triggering double click event:', e);
+    }
+
+    try {
+        console.log('Triggering the focus blur event');
+        await triggerFocusBlurEvent(page);
+    } catch (e) {
+        console.error('Error triggering focus blur event:', e);
+    }
+
+    try {
+        console.log('Triggering mouse events');
+        await triggerMouseEvents(page);
+    } catch (e) {
+        console.error('Error triggering mouse events:', e);
+    }
+
+    try {
+        console.log('Triggering keyboard events');
+        await triggerKeyEvents(page);
+    } catch (e) {
+        console.error('Error triggering keyboard events:', e);
+    }
+
+    try {
+        console.log('Triggering copy/paste events');
+        await triggerCopyPasteEvents(page);
+    } catch (e) {
+        console.error('Error triggering copy/paste events:', e);
+    }
+
+    try {
+        console.log('Triggering scroll/wheel events');
+        await triggerScrollEvent(page);
+    } catch (e) {
+        console.error('Error triggering scroll/wheel events:', e);
+    }
+
+    try {
+        console.log('Triggering resize events');
+        await triggerWindowResize(page);
+    } catch (e) {
+        console.error('Error triggering resize events:', e);
+    }
+
+    try {
+        console.log('Triggering orientation events');
+        await triggerOrientationChangeEvents(page);
+    } catch (e) {
+        console.error('Error triggering orientation events:', e);
+    }
+
+    try {
+        console.log('Triggering touch events');
+        await triggerTouchEvents(page);
+    } catch (e) {
+        console.error('Error triggering touch events:', e);
+    }
 }
 
 const configureConsentOMatic = async (browser) => {
