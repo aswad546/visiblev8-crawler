@@ -188,6 +188,29 @@ services:
       - "--web.console.templates=/etc/prometheus/consoles"
       - "--web.enable-lifecycle"
       - "--storage.tsdb.retention.time=60d"
+
+  loki:
+    image: grafana/loki:3.4.1
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/mnt/config/loki-config.yaml
+    volumes:
+      - loki_home:/mnt/config
+      - loki_data:/tmp/loki
+
+  # Promtail to scrape Docker container logs
+  promtail:
+    image: grafana/promtail:3.4.1
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - loki_home:/mnt/config
+      - loki_data:/tmp/loki
+    command: -config.file=/mnt/config/promtail-config.yaml      
+    depends_on:
+      - loki
+
   
   grafana:
     image: grafana/grafana:latest
@@ -205,9 +228,10 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+      - loki
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.60.0
     container_name: jaeger
     restart: unless-stopped
     ports:
@@ -217,10 +241,14 @@ services:
       - "14250:14250/tcp"  # Jaeger collector (gRPC)
       - "14318:4318"
       - "14317:4371"
-
     environment:
       - COLLECTOR_ZIPKIN_HOST_PORT=9411
       - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL=false
+      - BADGER_DIRECTORY_VALUE=/badger/data
+      - BADGER_DIRECTORY_KEY=/badger/key
+
     volumes:
       - jaeger_data:/badger
 
@@ -317,3 +345,15 @@ volumes:
       type: nfs
       o: addr=192.168.152.3,rw
       device: ":/u1/a8tariq/visiblev8-crawler/jaeger"
+  loki_data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.152.3,rw
+      device: ":/u1/a8tariq/visiblev8-crawler/loki/data"
+  loki_home:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.152.3,rw
+      device: ":/u1/a8tariq/visiblev8-crawler/loki"
