@@ -10,7 +10,9 @@ __pycache__/
 
 # C extensions
 *.so
-
+jaeger/data
+jaeger/key
+loki/data
 graphana/*
 !graphana
 /prometheus/*
