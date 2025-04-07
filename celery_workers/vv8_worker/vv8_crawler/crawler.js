@@ -13,54 +13,88 @@ const DEFAULT_LOITER_TIME = 15;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const triggerClickEvent = async (page) => {
-    await page.evaluate(() => {
-        document.body.click();
-    }); 
+    try {
+        await page.evaluate(() => {
+            document.body.click();
+        }); 
+        
+        // Check for navigation after click
+        const newPage = await detectNavigationOrNewTab(page);
+        if (newPage !== null) {
+            console.log('Navigation detected after click event');
+            return newPage;
+        }
+        return page;
+    } catch (e) {
+        console.error('Error in triggerClickEvent:', e);
+        return page;
+    }
 }
 
 const triggerFocusBlurEvent = async (page) => {
+    try {
+        const inputElements = await page.$$('input');
 
-    const inputElements = await page.$$('input');
+        for (const input of inputElements) {
+            try {
+                // Scroll the element into view
+                await page.evaluate((element) => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                }, input);
 
-    for (const input of inputElements) {
-        try {
-      // Scroll the element into view
-      await page.evaluate((element) => {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      }, input);
+                // Wait for the element to be visible and clickable
+                await page.waitForSelector('input', { visible: true, timeout: 1500});
 
-      // Wait for the element to be visible and clickable
-      await page.waitForSelector('input', { visible: true, timeout: 1500});
+                // Click the element
+                await input.click({timeout:0});
+                console.log('Clicked input element');
 
-      // Click the element
-      await input.click({timeout:0});
-      console.log('Clicked input element');
-
-      // Optionally wait a bit between clicks
-    //   await page.waitForTimeout(500);
-    } catch (error) {
-      console.log('Error clicking input element');
+                // Check for navigation after input click
+                const newPage = await detectNavigationOrNewTab(page);
+                if (newPage !== null && newPage !== page) {
+                    console.log('Navigation detected after input click');
+                    return newPage;
+                }
+            } catch (error) {
+                console.log('Error clicking input element');
+            }
+        }
+        return page;
+    } catch (e) {
+        console.error('Error in triggerFocusBlurEvent:', e);
+        return page;
     }
-  }
-    //To trigger blur event
-    // await page.click('body')
 }
 
 const triggerDoubleClickEvent = async(page) => {
-    await page.evaluate(() => {
-        const element = document.querySelector('body'); // Replace 'body' with any valid selector for the element you want to double-click.
-        if (element) {
-            const event = new MouseEvent('dblclick', {
-                bubbles: true,
-                cancelable: true,
-                view: window
-            });
-            console.log('Attempting to trigger double click event handlers')
-            element.dispatchEvent(event);
+    try {
+        await page.evaluate(() => {
+            const element = document.querySelector('body');
+            if (element) {
+                const event = new MouseEvent('dblclick', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                console.log('Attempting to trigger double click event handlers')
+                element.dispatchEvent(event);
+            }
+        });
+        
+        // Check for navigation after double click
+        const newPage = await detectNavigationOrNewTab(page);
+        if (newPage !== null) {
+            console.log('Navigation detected after double click event');
+            return newPage;
         }
-    });
-    
+        return page;
+    } catch (e) {
+        console.error('Error in triggerDoubleClickEvent:', e);
+        return page;
+    }
 }
+
+
 const triggerMouseEvents = async (page) => {
     // Simulate other mouse events on the first input
     try {
@@ -242,21 +276,33 @@ async function fillInputFields(page) {
 
     try {
         console.log('Triggering the click event');
-        await triggerClickEvent(page);
+        const pageAfterClick = await triggerClickEvent(page);
+        if (pageAfterClick !== page) {
+            page = pageAfterClick;
+        }
+
     } catch (e) {
         console.error('Error triggering click event:', e);
     }
 
     try {
         console.log('Triggering double click event');
-        await triggerDoubleClickEvent(page);
+        const pageAfterDoubleClick = await triggerDoubleClickEvent(page);
+        if (pageAfterDoubleClick !== page) {
+            page = pageAfterDoubleClick;
+        }
+
     } catch (e) {
         console.error('Error triggering double click event:', e);
     }
 
     try {
         console.log('Triggering the focus blur event');
-        await triggerFocusBlurEvent(page);
+        const pageAfterFocusBlur = await triggerFocusBlurEvent(page);
+        if (pageAfterFocusBlur !== page) {
+            page = pageAfterFocusBlur;
+        }
+
     } catch (e) {
         console.error('Error triggering focus blur event:', e);
     }
@@ -309,6 +355,7 @@ async function fillInputFields(page) {
     } catch (e) {
         console.error('Error triggering touch events:', e);
     }
+    return page; // Return the final page reference
 }
 
 const configureConsentOMatic = async (browser) => {
@@ -446,121 +493,121 @@ async function selectOptions(page, selectOptionsArray) {
     }
   }
 
- async function detectNavigationOrNewTab(page) {
-  let timeoutId = null;
-  let targetListener = null;
-  let navigationPromise = null;
-  
-  try {
-    const timeout = 5000;
-    const browser = page.browser();
+  async function detectNavigationOrNewTab(page) {
+    let timeoutId = null;
+    let targetListener = null;
+    let navigationPromise = null;
     
-    // Create a cleanup function to remove all listeners
-    const cleanup = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      if (targetListener && browser) {
-        browser.off('targetcreated', targetListener);
-        targetListener = null;
-      }
-    };
-    
-    return await new Promise((mainResolve) => {
-      // First promise: navigation on the same page
-      navigationPromise = page.waitForNavigation({ timeout })
-        .then((result) => {
-          console.log('Navigation detected');
-          cleanup();
-          mainResolve(page);
-          return page;
-        })
-        .catch(() => null);  // Just return null on timeout
+    try {
+      const timeout = 5000;
+      const browser = page.browser();
       
-      // Second promise: new tab detection
-      targetListener = async (target) => {
-        if (target.opener() === page.target()) {
-          const newPage = await target.page();
-          await newPage.bringToFront();
-          console.log('New tab detected');
-          cleanup();
-          mainResolve(newPage);
+      // Create a cleanup function to remove all listeners
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (targetListener && browser) {
+          browser.off('targetcreated', targetListener);
+          targetListener = null;
         }
       };
       
-      browser.on('targetcreated', targetListener);
-      
-      // Set the timeout to handle the case where neither navigation nor new tab occurs
-      timeoutId = setTimeout(() => {
-        console.log('Navigation/tab timeout reached');
-        cleanup();
-        mainResolve(null);
-      }, timeout);
-    });
-  } catch (error) {
-    console.error('Error in detectNavigationOrNewTab:', error);
-    return null;
-  }
-}
-
-/**
- * Executes the given list of actions on the page.
- * For each action that has a valid clickPosition (x, y),
- * it moves the mouse to that coordinate, clicks, and then waits
- * for any navigation or new tab. If a new page is detected, the function
- * switches to that page.
- * Errors are logged using console.error.
- *
- * @param {object} page - The Puppeteer page object.
- * @param {Array} actions - The list of action objects.
- * @returns {object} - The final page object (in case it changed due to navigation or new tab).
- */
-async function executeActions(page, actions) {
-  for (let action of actions) {
-    if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
-      console.error("Skipping action due to missing or invalid clickPosition:", action);
-      continue;
-    }
-
-    const { x, y } = action.clickPosition;
-    try {
-      // Move the mouse to the specified coordinates
-      await page.mouse.move(x, y, { delay: 100 });
-      await sleep(500);
-      
-      // Click at the specified coordinates
-      await page.mouse.click(x, y);
-      console.log(`Clicked at (${x}, ${y})`);
-
-      // Wait for navigation or new tab after the click
-      const newPage = await detectNavigationOrNewTab(page);
-      
-      // Handle the navigation result
-      if (newPage === null) {
-        console.log('No navigation or new tab detected after click. Continuing with current page.');
-      } else if (newPage !== page) {
-        console.log('New tab detected after click. Switching to new tab.');
-        try {
-          // Only close the original page if we successfully got a new page
-          await page.close().catch(err => console.error('Error closing original page:', err));
-          page = newPage;
-        } catch (err) {
-          console.error('Error switching to new tab:', err);
-        }
-      } else {
-        console.log('Navigation detected on current page.');
-      }
-      
-      // Wait a bit after the action for any effects to settle
-      await sleep(1000);
-    } catch (err) {
-      console.error(`Error executing action at (${x}, ${y}):`, err);
+      return await new Promise((mainResolve) => {
+        // First promise: navigation on the same page
+        navigationPromise = page.waitForNavigation({ timeout })
+          .then((result) => {
+            console.log('Navigation detected');
+            cleanup();
+            mainResolve(page);
+            return page;
+          })
+          .catch(() => null);  // Just return null on timeout
+        
+        // Second promise: new tab detection
+        targetListener = async (target) => {
+          if (target.opener() === page.target()) {
+            const newPage = await target.page();
+            await newPage.bringToFront();
+            console.log('New tab detected');
+            cleanup();
+            mainResolve(newPage);
+          }
+        };
+        
+        browser.on('targetcreated', targetListener);
+        
+        // Set the timeout to handle the case where neither navigation nor new tab occurs
+        timeoutId = setTimeout(() => {
+          console.log('Navigation/tab timeout reached');
+          cleanup();
+          mainResolve(null);
+        }, timeout);
+      });
+    } catch (error) {
+      console.error('Error in detectNavigationOrNewTab:', error);
+      return null;
     }
   }
   
-  return page;
-}
+  /**
+   * Executes the given list of actions on the page.
+   * For each action that has a valid clickPosition (x, y),
+   * it moves the mouse to that coordinate, clicks, and then waits
+   * for any navigation or new tab. If a new page is detected, the function
+   * switches to that page.
+   * Errors are logged using console.error.
+   *
+   * @param {object} page - The Puppeteer page object.
+   * @param {Array} actions - The list of action objects.
+   * @returns {object} - The final page object (in case it changed due to navigation or new tab).
+   */
+  async function executeActions(page, actions) {
+    for (let action of actions) {
+      if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
+        console.error("Skipping action due to missing or invalid clickPosition:", action);
+        continue;
+      }
+  
+      const { x, y } = action.clickPosition;
+      try {
+        // Move the mouse to the specified coordinates
+        await page.mouse.move(x, y, { delay: 100 });
+        await sleep(500);
+        
+        // Click at the specified coordinates
+        await page.mouse.click(x, y);
+        console.log(`Clicked at (${x}, ${y})`);
+  
+        // Wait for navigation or new tab after the click
+        const newPage = await detectNavigationOrNewTab(page);
+        
+        // Handle the navigation result
+        if (newPage === null) {
+          console.log('No navigation or new tab detected after click. Continuing with current page.');
+        } else if (newPage !== page) {
+          console.log('New tab detected after click. Switching to new tab.');
+          try {
+            // Only close the original page if we successfully got a new page
+            await page.close().catch(err => console.error('Error closing original page:', err));
+            page = newPage;
+          } catch (err) {
+            console.error('Error switching to new tab:', err);
+          }
+        } else {
+          console.log('Navigation detected on current page.');
+        }
+        
+        // Wait a bit after the action for any effects to settle
+        await sleep(1000);
+      } catch (err) {
+        console.error(`Error executing action at (${x}, ${y}):`, err);
+      }
+    }
+    
+    return page;
+  }
   
   
 
@@ -607,7 +654,7 @@ function main() {
 
             let combined_crawler_args = default_crawler_args.concat(filteredArgs);
             let show_log = false;
-            const user_data_dir = `/tmp/${uid}`;
+            const user_data_dir = `/tmp/${uid}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;;
 
             if ( combined_crawler_args.includes( '--show-chrome-log' ) ) {
                 show_log = true;
@@ -732,12 +779,13 @@ function main() {
                         // Continue with the remaining actions.
                         if (actions.length > 0) {
                           console.log('Executing Actions');
+                          await fillInputFields(page);
                           page = await executeActions(page, actions);
                           await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
                       
-                    await triggerEventHandlers(page)
+                    page = await triggerEventHandlers(page)
                     console.log('Triggered all events: ' + input_url)
                     await sleep(options.loiterTime * 1000);
                 } catch (ex) {
