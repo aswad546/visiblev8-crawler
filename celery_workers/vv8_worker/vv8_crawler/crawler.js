@@ -238,7 +238,7 @@ async function fillInputFields(page) {
   }
 
   const triggerEventHandlers = async (page) => {
-    await sleep(1000);
+    await sleep(5000);
 
     try {
         console.log('Triggering the click event');
@@ -446,7 +446,65 @@ async function selectOptions(page, selectOptionsArray) {
     }
   }
 
- /**
+ async function detectNavigationOrNewTab(page) {
+  let timeoutId = null;
+  let targetListener = null;
+  let navigationPromise = null;
+  
+  try {
+    const timeout = 5000;
+    const browser = page.browser();
+    
+    // Create a cleanup function to remove all listeners
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (targetListener && browser) {
+        browser.off('targetcreated', targetListener);
+        targetListener = null;
+      }
+    };
+    
+    return await new Promise((mainResolve) => {
+      // First promise: navigation on the same page
+      navigationPromise = page.waitForNavigation({ timeout })
+        .then((result) => {
+          console.log('Navigation detected');
+          cleanup();
+          mainResolve(page);
+          return page;
+        })
+        .catch(() => null);  // Just return null on timeout
+      
+      // Second promise: new tab detection
+      targetListener = async (target) => {
+        if (target.opener() === page.target()) {
+          const newPage = await target.page();
+          await newPage.bringToFront();
+          console.log('New tab detected');
+          cleanup();
+          mainResolve(newPage);
+        }
+      };
+      
+      browser.on('targetcreated', targetListener);
+      
+      // Set the timeout to handle the case where neither navigation nor new tab occurs
+      timeoutId = setTimeout(() => {
+        console.log('Navigation/tab timeout reached');
+        cleanup();
+        mainResolve(null);
+      }, timeout);
+    });
+  } catch (error) {
+    console.error('Error in detectNavigationOrNewTab:', error);
+    return null;
+  }
+}
+
+/**
  * Executes the given list of actions on the page.
  * For each action that has a valid clickPosition (x, y),
  * it moves the mouse to that coordinate, clicks, and then waits
@@ -459,71 +517,51 @@ async function selectOptions(page, selectOptionsArray) {
  * @returns {object} - The final page object (in case it changed due to navigation or new tab).
  */
 async function executeActions(page, actions) {
-    for (let action of actions) {
-      if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
-        console.error("Skipping action due to missing or invalid clickPosition:", action);
-        continue;
-      }
-  
-      const { x, y } = action.clickPosition;
-      try {
-        // Move the mouse to the specified coordinates
-        await page.mouse.move(x, y, { delay: 100 });
-        await sleep(500);
-        
-        // Click at the specified coordinates
-        await page.mouse.click(x, y);
-        console.log(`Clicked at (${x}, ${y})`);
-  
-        // Wait for navigation or new tab after the click
-        const newPage = await detectNavigationOrNewTab(page);
-        if (newPage && newPage !== page) {
-          console.log('Navigation or new tab detected after click. Switching to new page.');
-          await page.close();
-          page = newPage;
-          await page.bringToFront();
-        }
-        // Wait a bit after the click for any effects to settle
-        await sleep(1000);
-      } catch (err) {
-        console.error(`Error executing action at (${x}, ${y}):`, err);
-      }
+  for (let action of actions) {
+    if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
+      console.error("Skipping action due to missing or invalid clickPosition:", action);
+      continue;
     }
-    return page;
-  }
-  
 
-/**
- * Detects if a navigation or new tab has been opened after a click.
- * Returns the new page if detected, or null if no navigation/new tab occurred within the timeout.
- */
-async function detectNavigationOrNewTab(page) {
-    const timeout = 10000;
-    const browser = page.browser();
-  
-    return Promise.race([
-      page.waitForNavigation({ timeout }).then(() => {
-        console.log('Navigation detected.');
-        return page;
-      }).catch(() => null),
-      new Promise((resolve) => {
-        const listener = async (target) => {
-          if (target.opener() === page.target()) {
-            const newPage = await target.page();
-            await newPage.bringToFront();
-            console.log('New tab detected.');
-            browser.off('targetcreated', listener);
-            resolve(newPage);
-          }
-        };
-        browser.on('targetcreated', listener);
-        setTimeout(() => {
-          browser.off('targetcreated', listener);
-          resolve(null);
-        }, timeout);
-      })
-    ]);
+    const { x, y } = action.clickPosition;
+    try {
+      // Move the mouse to the specified coordinates
+      await page.mouse.move(x, y, { delay: 100 });
+      await sleep(500);
+      
+      // Click at the specified coordinates
+      await page.mouse.click(x, y);
+      console.log(`Clicked at (${x}, ${y})`);
+
+      // Wait for navigation or new tab after the click
+      const newPage = await detectNavigationOrNewTab(page);
+      
+      // Handle the navigation result
+      if (newPage === null) {
+        console.log('No navigation or new tab detected after click. Continuing with current page.');
+      } else if (newPage !== page) {
+        console.log('New tab detected after click. Switching to new tab.');
+        try {
+          // Only close the original page if we successfully got a new page
+          await page.close().catch(err => console.error('Error closing original page:', err));
+          page = newPage;
+        } catch (err) {
+          console.error('Error switching to new tab:', err);
+        }
+      } else {
+        console.log('Navigation detected on current page.');
+      }
+      
+      // Wait a bit after the action for any effects to settle
+      await sleep(1000);
+    } catch (err) {
+      console.error(`Error executing action at (${x}, ${y}):`, err);
+    }
   }
+  
+  return page;
+}
+  
   
 
 
@@ -695,6 +733,7 @@ function main() {
                         if (actions.length > 0) {
                           console.log('Executing Actions');
                           page = await executeActions(page, actions);
+                          await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
                       
