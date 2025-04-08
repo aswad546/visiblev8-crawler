@@ -85,7 +85,7 @@ services:
     ports:
       - "5901:5901/tcp"
       - "6901:6901/tcp"
-      - "9464:9464/tcp"  # Prometheus metrics endpoint
+      - "9465:9464/tcp"  # Prometheus metrics endpoint
     build:
       context: ./celery_workers
       dockerfile: vv8_worker.dockerfile
@@ -193,7 +193,7 @@ services:
     image: grafana/loki:3.4.1
     container_name: loki
     ports:
-      - "3100:3100"
+      - "3101:3100"
     command: -config.file=/mnt/config/loki-config.yaml
     volumes:
       - loki_home:/mnt/config
@@ -235,7 +235,7 @@ services:
     container_name: jaeger
     restart: unless-stopped
     ports:
-      - "16686:16686/tcp"  # Jaeger UI
+      - "16687:16686/tcp"  # Jaeger UI
       - "6831:6831/udp"   # Jaeger agent (UDP)
       - "14268:14268/tcp"  # Jaeger collector (HTTP)
       - "14250:14250/tcp"  # Jaeger collector (gRPC)
@@ -248,9 +248,26 @@ services:
       - BADGER_EPHEMERAL=false
       - BADGER_DIRECTORY_VALUE=/badger/data
       - BADGER_DIRECTORY_KEY=/badger/key
-
     volumes:
       - jaeger_data:/badger
+
+  celery_exporter:
+    image: danihodovic/celery-exporter
+    restart: unless-stopped
+    ports:
+      - "9809:9808"  # Default port for the Celery exporter
+    environment:
+      - CE_BROKER_URL=redis://task_queue_broker:6379/0
+      # You can add other options using CE_ prefix as mentioned in the docs
+    depends_on:
+      - task_queue_broker
+    command:
+      - "--broker-url=redis://task_queue_broker:6379/0"
+      # Add additional broker transport options if needed
+      # - "--broker-transport-option=visibility_timeout=7200"
+    labels:
+      - "com.prometheus.scrape=true"
+      - "com.prometheus.port=9808"
 
   # New service: OpenTelemetry Collector
   otel-collector:
@@ -275,85 +292,85 @@ volumes:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/vv8db2"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/vv8db2"
   redis_data:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/redis_data"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/redis_data"
   mongo_data:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/mongo/data"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/mongo/data"
   mongo_init:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/mongo/init"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/mongo/init"
   screenshots:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/screenshots"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/screenshots"
   har:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/har"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/har"
   vv8_crawler:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/celery_workers/vv8_worker/vv8_crawler"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/celery_workers/vv8_worker/vv8_crawler"
   raw_logs:
     driver: local
     driver_opts:
-      type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/raw_logs"
+      type: none
+      o: bind
+      device: "/tmp/vv8_results/raw_logs"
   parsed_logs:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/parsed_logs"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/parsed_logs"
   flower_data:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/flower/data"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/flower/data"
   grafana-storage:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/graphana"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/graphana"
   prometheus_data:
     driver: local
   jaeger_data:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/jaeger"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/jaeger"
   loki_data:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/loki/data"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/loki/data"
   loki_home:
     driver: local
     driver_opts:
       type: nfs
-      o: addr=192.168.152.3,rw
-      device: ":/u1/a8tariq/visiblev8-crawler/loki"
+      o: addr=172.19.156.24,rw
+      device: ":/home/a8tariq/visiblev8-crawler/loki"

@@ -198,6 +198,7 @@ har
 vv8db*/
 parsed_logs/
 raw_logs/
+raw_logs_old/
 mongo/data/
 bak
 scripts/.vv8.db

@@ -746,7 +746,7 @@ function main() {
                 executablePath: '/opt/chromium.org/chromium/chrome',
                 args: combined_crawler_args,
                 timeout: 600 * 1000,
-                protocolTimeout: 600 * 1000,
+                protocolTimeout: 60 * 1000,
             });
 
             // await configureConsentOMatic(browser)
