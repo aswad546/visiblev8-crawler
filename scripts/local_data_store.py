@@ -19,8 +19,9 @@ def init():
     config_database_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.vv8.db')
     if not os.path.exists(config_database_path):
         help()
-        os._exit(-1)
+        os._exit(-1)         
     conn = sqlite3.connect(config_database_path)
+    print(config_database_path)
     return DataStore(conn, os.path.dirname(os.path.realpath(__file__)))
 
 def setup(hostname: str, server_type: str = 'local', instance_count: int = 1):
@@ -35,7 +36,6 @@ def setup(hostname: str, server_type: str = 'local', instance_count: int = 1):
     db.execute('INSERT INTO config (config) VALUES (?)', (json.dumps({ 'hostname': hostname, 'server_type': server_type, 'instance_count': instance_count }),))
     db.execute('DROP TABLE IF EXISTS submissions')
     db.execute('''
-        DROP TABLE IF EXISTS submissions;
         CREATE TABLE submissions (
         submission_id TEXT NOT NULL PRIMARY KEY,
         task_id TEXT NOT NULL,
