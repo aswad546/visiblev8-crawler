@@ -10,6 +10,22 @@ const fs = require( 'fs' );
 const DEFAULT_NAV_TIME = 600;
 const DEFAULT_LOITER_TIME = 15;
 
+// Logging helper to ensure URL is included in all logs
+let currentUrl = ""; // Will be set when crawl starts
+
+const logger = {
+    log: (message, url = currentUrl) => {
+        console.log(`[URL:${url}] ${message}`);
+    },
+    error: (message, error = null, url = currentUrl) => {
+        const errorMsg = error ? `${message}: ${error}` : message;
+        console.error(`[URL:${url}] ERROR: ${errorMsg}`);
+    },
+    warn: (message, url = currentUrl) => {
+        console.warn(`[URL:${url}] WARN: ${message}`);
+    }
+};
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const triggerClickEvent = async (page) => {
@@ -21,12 +37,12 @@ const triggerClickEvent = async (page) => {
         // Check for navigation after click
         const newPage = await detectNavigationOrNewTab(page);
         if (newPage !== null) {
-            console.log('Navigation detected after click event');
+            logger.log('Navigation detected after click event');
             return newPage;
         }
         return page;
     } catch (e) {
-        console.error('Error in triggerClickEvent:', e);
+        logger.error('Error in triggerClickEvent', e);
         return page;
     }
 }
@@ -47,21 +63,21 @@ const triggerFocusBlurEvent = async (page) => {
 
                 // Click the element
                 await input.click({timeout:0});
-                console.log('Clicked input element');
+                logger.log('Clicked input element');
 
                 // Check for navigation after input click
                 const newPage = await detectNavigationOrNewTab(page);
                 if (newPage !== null && newPage !== page) {
-                    console.log('Navigation detected after input click');
+                    logger.log('Navigation detected after input click');
                     return newPage;
                 }
             } catch (error) {
-                console.log('Error clicking input element');
+                logger.log('Error clicking input element');
             }
         }
         return page;
     } catch (e) {
-        console.error('Error in triggerFocusBlurEvent:', e);
+        logger.error('Error in triggerFocusBlurEvent', e);
         return page;
     }
 }
@@ -84,12 +100,12 @@ const triggerDoubleClickEvent = async(page) => {
         // Check for navigation after double click
         const newPage = await detectNavigationOrNewTab(page);
         if (newPage !== null) {
-            console.log('Navigation detected after double click event');
+            logger.log('Navigation detected after double click event');
             return newPage;
         }
         return page;
     } catch (e) {
-        console.error('Error in triggerDoubleClickEvent:', e);
+        logger.error('Error in triggerDoubleClickEvent', e);
         return page;
     }
 }
@@ -114,7 +130,7 @@ const triggerMouseEvents = async (page) => {
         // Mouse enter event doesn't directly exist, but moving the mouse to the element simulates it
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {timeout: 60000});
     } catch (e) {
-        console.log('Error occured while trying to trigger mousemove event: ' + e);
+        logger.error('Error occurred while trying to trigger mousemove event', e);
     }
     
 }
@@ -161,7 +177,7 @@ const triggerScrollEvent = async (page) => {
     try {
         await page.mouse.wheel({ deltaY: -100, timeout: 0 });  // Ensure enough timeout if mouse interaction is needed
     } catch (error) {
-        console.error("Mouse wheel error:", error);
+        logger.error("Mouse wheel error", error);
     }
 }
 
@@ -169,7 +185,7 @@ const triggerWindowResize = async (page) => {
    
     const landscape = { width: 1280, height: 1000 };
     await page.setViewport(landscape);
-    console.log('Set to landscape');
+    logger.log('Set to landscape');
 
 }
 const triggerOrientationChangeEvents = async (page) => {
@@ -254,12 +270,12 @@ async function fillInputFields(page) {
             input.type('aa', { delay: 100 }),
             new Promise((_, reject) => setTimeout(() => reject('Timeout'), 3000)),
           ]);
-          // console.log('Successfully filled input field');
+          // logger.log('Successfully filled input field');
         } else {
-          // console.log('Skipping non-interactable input field.');
+          // logger.log('Skipping non-interactable input field.');
         }
       } catch (e) {
-        // console.log('Skipping input field due to timeout or other error:', e.message);
+        // logger.log('Skipping input field due to timeout or other error:', e.message);
       }
     }
   
@@ -275,85 +291,85 @@ async function fillInputFields(page) {
     await sleep(5000);
 
     try {
-        console.log('Triggering the click event');
+        logger.log('Triggering the click event');
         const pageAfterClick = await triggerClickEvent(page);
         if (pageAfterClick !== page) {
             page = pageAfterClick;
         }
 
     } catch (e) {
-        console.error('Error triggering click event:', e);
+        logger.error('Error triggering click event', e);
     }
 
     try {
-        console.log('Triggering double click event');
+        logger.log('Triggering double click event');
         const pageAfterDoubleClick = await triggerDoubleClickEvent(page);
         if (pageAfterDoubleClick !== page) {
             page = pageAfterDoubleClick;
         }
 
     } catch (e) {
-        console.error('Error triggering double click event:', e);
+        logger.error('Error triggering double click event', e);
     }
 
     try {
-        console.log('Triggering the focus blur event');
+        logger.log('Triggering the focus blur event');
         const pageAfterFocusBlur = await triggerFocusBlurEvent(page);
         if (pageAfterFocusBlur !== page) {
             page = pageAfterFocusBlur;
         }
 
     } catch (e) {
-        console.error('Error triggering focus blur event:', e);
+        logger.error('Error triggering focus blur event', e);
     }
 
     try {
-        console.log('Triggering mouse events');
+        logger.log('Triggering mouse events');
         await triggerMouseEvents(page);
     } catch (e) {
-        console.error('Error triggering mouse events:', e);
+        logger.error('Error triggering mouse events', e);
     }
 
     try {
-        console.log('Triggering keyboard events');
+        logger.log('Triggering keyboard events');
         await triggerKeyEvents(page);
     } catch (e) {
-        console.error('Error triggering keyboard events:', e);
+        logger.error('Error triggering keyboard events', e);
     }
 
     try {
-        console.log('Triggering copy/paste events');
+        logger.log('Triggering copy/paste events');
         await triggerCopyPasteEvents(page);
     } catch (e) {
-        console.error('Error triggering copy/paste events:', e);
+        logger.error('Error triggering copy/paste events', e);
     }
 
     try {
-        console.log('Triggering scroll/wheel events');
+        logger.log('Triggering scroll/wheel events');
         await triggerScrollEvent(page);
     } catch (e) {
-        console.error('Error triggering scroll/wheel events:', e);
+        logger.error('Error triggering scroll/wheel events', e);
     }
 
     try {
-        console.log('Triggering resize events');
+        logger.log('Triggering resize events');
         await triggerWindowResize(page);
     } catch (e) {
-        console.error('Error triggering resize events:', e);
+        logger.error('Error triggering resize events', e);
     }
 
     try {
-        console.log('Triggering orientation events');
+        logger.log('Triggering orientation events');
         await triggerOrientationChangeEvents(page);
     } catch (e) {
-        console.error('Error triggering orientation events:', e);
+        logger.error('Error triggering orientation events', e);
     }
 
     try {
-        console.log('Triggering touch events');
+        logger.log('Triggering touch events');
         await triggerTouchEvents(page);
     } catch (e) {
-        console.error('Error triggering touch events:', e);
+        logger.error('Error triggering touch events', e);
     }
     return page; // Return the final page reference
 }
@@ -363,10 +379,10 @@ const configureConsentOMatic = async (browser) => {
     
     // Navigate directly to the options page
     await page.goto('chrome-extension://pogpcelnjdlchjbjcakalbgppnhkondb/options.html');
-    console.log('Gone to consent-o-matic configuration page')
+    logger.log('Gone to consent-o-matic configuration page');
     // Check if the correct page is loaded
     if (page.url() === 'chrome-extension://pogpcelnjdlchjbjcakalbgppnhkondb/options.html') {
-        console.log('On the correct options page');
+        logger.log('On the correct options page');
 
         // Set all sliders to true to accept all possible consent banners
         await page.evaluate(() => {
@@ -404,9 +420,9 @@ const configureConsentOMatic = async (browser) => {
         });
 
 
-        console.log('All sliders set to true');
+        logger.log('All sliders set to true');
     } else {
-        console.log('Not on the correct page, check the URL');
+        logger.log('Not on the correct page, check the URL');
     }
     
     await page.close();
@@ -419,24 +435,24 @@ const registerConsentBannerDetector = async (page) => {
             if (msg.text() === '') { return }
     
             const text = msg.text()
-            console.log(`- Console message: ${text}, [${msg.location().url}]`)
+            logger.log(`- Console message: ${text}, [${msg.location().url}]`);
     
             if (msg.location().url.match(/moz-extension.*\/ConsentEngine.js/g)) {
                 let matches = (/CMP Detected: (?<cmpName>.*)/).exec(text)
                 if (matches) {
-                    console.log(`- CMP found (${matches.groups.cmpName})`, worker)
-                    resolve('Found')
+                    logger.log(`- CMP found (${matches.groups.cmpName})`, worker);
+                    resolve('Found');
                 } else {
                     let matches = (/^(?<cmpName>.*) - (SAVE_CONSENT|HIDE_CMP|DO_CONSENT|OPEN_OPTIONS|Showing|isShowing\?)$/).exec(text)
                     if (matches) {
-                        console.log('LOOKIE HEREEEEEEE matches:', matches)
+                        logger.log('LOOKIE HEREEEEEEE matches:', matches);
                         // if (matches.contains('SAVE_CONSENT')) {
                         //     console.log
                         // }
-                        console.log(`- CMP found (${matches.groups.cmpName})`, worker)
-                        resolve('Found')
+                        logger.log(`- CMP found (${matches.groups.cmpName})`, worker);
+                        resolve('Found');
                     } else if (text.match(/No CMP detected in 5 seconds, stopping engine.*/g)) {
-                        resolve('Not Found')
+                        resolve('Not Found');
                     }
                 }
             }
@@ -445,9 +461,9 @@ const registerConsentBannerDetector = async (page) => {
         page.on('console', consoleHandler)
 
         setTimeout(() => {
-            console.log('Removing event listeners')
-            page.removeAllListeners('console')
-            resolve('Not Found')
+            logger.log('Removing event listeners');
+            page.removeAllListeners('console');
+            resolve('Not Found');
         }, 300000)
     })
     
@@ -462,14 +478,14 @@ const registerConsentBannerDetector = async (page) => {
  */
 async function selectOptions(page, selectOptionsArray) {
     if (!selectOptionsArray) {
-        console.log("No select options provided, skipping selection.");
+        logger.log("No select options provided, skipping selection.");
         return;
       }
     
     try {
       const selects = await page.$$('select');
       if (!selects || selects.length === 0) {
-        console.error('No select elements found on the page.');
+        logger.error('No select elements found on the page.');
         return;
       }
       // Set values for as many select elements as we have values
@@ -485,11 +501,11 @@ async function selectOptions(page, selectOptionsArray) {
             }
           }, selectOptionsArray[i].value);
         } catch (err) {
-          console.error(`Error processing select element index ${i}:`, err);
+          logger.error(`Error processing select element index ${i}:`, err);
         }
       }
     } catch (e) {
-      console.error('Error in selectOptions function:', e);
+      logger.error('Error in selectOptions function:', e);
     }
   }
 
@@ -518,7 +534,7 @@ async function selectOptions(page, selectOptionsArray) {
         // First promise: navigation on the same page
         navigationPromise = page.waitForNavigation({ timeout })
           .then((result) => {
-            console.log('Navigation detected');
+            logger.log('Navigation detected');
             cleanup();
             mainResolve(page);
             return page;
@@ -530,7 +546,7 @@ async function selectOptions(page, selectOptionsArray) {
           if (target.opener() === page.target()) {
             const newPage = await target.page();
             await newPage.bringToFront();
-            console.log('New tab detected');
+            logger.log('New tab detected');
             cleanup();
             mainResolve(newPage);
           }
@@ -540,13 +556,13 @@ async function selectOptions(page, selectOptionsArray) {
         
         // Set the timeout to handle the case where neither navigation nor new tab occurs
         timeoutId = setTimeout(() => {
-          console.log('Navigation/tab timeout reached');
+          logger.log('Navigation/tab timeout reached');
           cleanup();
           mainResolve(null);
         }, timeout);
       });
     } catch (error) {
-      console.error('Error in detectNavigationOrNewTab:', error);
+      logger.error('Error in detectNavigationOrNewTab:', error);
       return null;
     }
   }
@@ -566,7 +582,7 @@ async function selectOptions(page, selectOptionsArray) {
   async function executeActions(page, actions) {
     for (let action of actions) {
       if (!action.clickPosition || typeof action.clickPosition.x !== 'number' || typeof action.clickPosition.y !== 'number') {
-        console.error("Skipping action due to missing or invalid clickPosition:", action);
+        logger.error("Skipping action due to missing or invalid clickPosition:", action);
         continue;
       }
   
@@ -578,31 +594,31 @@ async function selectOptions(page, selectOptionsArray) {
         
         // Click at the specified coordinates
         await page.mouse.click(x, y);
-        console.log(`Clicked at (${x}, ${y})`);
+        logger.log(`Clicked at (${x}, ${y})`);
   
         // Wait for navigation or new tab after the click
         const newPage = await detectNavigationOrNewTab(page);
         
         // Handle the navigation result
         if (newPage === null) {
-          console.log('No navigation or new tab detected after click. Continuing with current page.');
+          logger.log('No navigation or new tab detected after click. Continuing with current page.');
         } else if (newPage !== page) {
-          console.log('New tab detected after click. Switching to new tab.');
+          logger.log('New tab detected after click. Switching to new tab.');
           try {
             // Only close the original page if we successfully got a new page
-            await page.close().catch(err => console.error('Error closing original page:', err));
+            await page.close().catch(err => logger.error('Error closing original page:', err));
             page = newPage;
           } catch (err) {
-            console.error('Error switching to new tab:', err);
+            logger.error('Error switching to new tab:', err);
           }
         } else {
-          console.log('Navigation detected on current page.');
+          logger.log('Navigation detected on current page.');
         }
         
         // Wait a bit after the action for any effects to settle
-        await sleep(1000);
+        await sleep(4000); // Look here mf
       } catch (err) {
-        console.error(`Error executing action at (${x}, ${y}):`, err);
+        logger.error(`Error executing action at (${x}, ${y}):`, err);
       }
     }
     
@@ -640,6 +656,9 @@ function main() {
         .allowUnknownOption(true)
         .description("Visit the given URL and store it under the UID, creating a page record and collecting all data")
         .action(async function(input_url, uid, options) {
+            // Set current URL to be used in all logging
+            currentUrl = input_url;
+            
             // Remove any "--actions" flag and its value from the raw arguments.
             // This ensures that the extra arguments contain only crawler options.
             let filteredArgs = [];
@@ -678,21 +697,21 @@ function main() {
             }
 
             if ( show_log ) {
-                console.log( `Using user data dir: ${user_data_dir}` );
-                console.log(`Running chrome with, screenshot set to ${!options.disable_screenshots}, 
+                logger.log(`Using user data dir: ${user_data_dir}`);
+                logger.log(`Running chrome with, screenshot set to ${!options.disable_screenshots}, 
                 headless set to ${options.headless} 
-                and args: ${combined_crawler_args.join(' ')} to crawl ${input_url}`)
+                and args: ${combined_crawler_args.join(' ')} to crawl ${input_url}`);
             }
 
                 // Parse the actions JSON if provided via the --actions option.
             let actions = null;
-            console.log(`actions: ${options.actions}`)
+            logger.log(`actions: ${options.actions}`);
             if (options.actions) {
                 try {
                     actions = JSON.parse(options.actions);
-                    console.log("Actions received:", actions);
+                    logger.log("Actions received: " + JSON.stringify(actions));
                 } catch (err) {
-                    console.error("Invalid JSON provided for --actions" + err);
+                    logger.error("Invalid JSON provided for --actions", err);
                     process.exit(1);
                 }
             }
@@ -710,7 +729,7 @@ function main() {
 
             // await configureConsentOMatic(browser)
  
-            console.log('Launching new browser')
+            logger.log('Launching new browser');
 
             let page = await browser.newPage( { viewport: null } );
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
@@ -718,11 +737,11 @@ function main() {
             await page.evaluateOnNewDocument(() => {
                 delete navigator.__proto__.webdriver;
             });
-            console.log('Created new page')
+            logger.log('Created new page');
             const har = new PuppeteerHar(page);
             const url = new URL(input_url);
-            console.log('Visiting url: ' + url)
-            console.log(options)
+            logger.log('Visiting url: ' + url);
+            logger.log('Crawl options: ' + JSON.stringify(options));
             try {
                 await har.start({ path: `${uid}.har` });
                 try{
@@ -733,10 +752,10 @@ function main() {
 
                     // const consentBannerPromise = registerConsentBannerDetector(page)
                     //Wait for the page to load and the consent banner to be triggered
-                    await Promise.all([ navigationPromise])
-                    console.log('Page load event is triggered')
+                    await Promise.all([ navigationPromise]);
+                    logger.log('Page load event is triggered');
                     //Wait for any additional scripts to load
-                    await sleep(4000)
+                    await sleep(4000);
 
 
                     /**
@@ -771,30 +790,30 @@ function main() {
                         const firstAction = actions.shift();
                         // If selectOptions is not null, then perform the selection.
                         if (firstAction.selectOptions !== null) {
-                          console.log('Selecting Options');
+                          logger.log('Selecting Options');
                           await selectOptions(page, firstAction.selectOptions);
                         } else {
-                          console.log('No select options provided in actions; skipping selection.');
+                          logger.log('No select options provided in actions; skipping selection.');
                         }
                         // Continue with the remaining actions.
                         if (actions.length > 0) {
-                          console.log('Executing Actions');
+                          logger.log('Executing Actions');
                           await fillInputFields(page);
                           page = await executeActions(page, actions);
                           await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
                       
-                    page = await triggerEventHandlers(page)
-                    console.log('Triggered all events: ' + input_url)
+                    page = await triggerEventHandlers(page);
+                    logger.log('Triggered all events');
                     await sleep(options.loiterTime * 1000);
                 } catch (ex) {
                     if ( ex instanceof TimeoutError ) {
-                        console.log('TIMEOUT OCCURED WHILE VISITING: ' + url)
+                        logger.error('TIMEOUT OCCURRED WHILE VISITING', ex);
                         // await sleep(options.loiterTime * 1000 * 2);
                         throw ex;
                     } else {
-                        console.log(`Error occured ${ex} while visiting: ` + url)
+                        logger.error(`Error occurred while visiting`, ex);
                         throw ex;
                     }
                 }
@@ -804,17 +823,16 @@ function main() {
                     
             } catch (ex) {
                 if (ex.message != 'Found or Not Found') {
-                    console.log(`FAILED CRAWL TO ${url}`)
-                    console.error(ex);
+                    logger.error(`FAILED CRAWL`, ex);
                     process.exitCode = -1;
                 }
                 
             }
-            console.log( 'Pid of browser process', browser.process().pid )
-            await har.stop()
+            logger.log('Pid of browser process: ' + browser.process().pid);
+            await har.stop();
             await page.close();
             await browser.close();
-            console.log(`Finished crawling, ${url} cleaning up...`);
+            logger.log(`Finished crawling, cleaning up...`);
             // Throw away user data
             await fs.promises.rm(user_data_dir, { recursive: true, force: true });
             
