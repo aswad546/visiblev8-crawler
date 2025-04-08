@@ -12,17 +12,18 @@ const DEFAULT_LOITER_TIME = 15;
 
 // Logging helper to ensure URL is included in all logs
 let currentUrl = ""; // Will be set when crawl starts
+let currUID = '';
 
 const logger = {
     log: (message, url = currentUrl) => {
-        console.log(`[URL:${url}] ${message}`);
+        console.log(`[URL:${url}] ${message} [UID:${currUID}]`);
     },
     error: (message, error = null, url = currentUrl) => {
         const errorMsg = error ? `${message}: ${error}` : message;
-        console.error(`[URL:${url}] ERROR: ${errorMsg}`);
+        console.error(`[URL:${url}] ERROR: ${errorMsg} [UID:${currUID}]`);
     },
     warn: (message, url = currentUrl) => {
-        console.warn(`[URL:${url}] WARN: ${message}`);
+        console.warn(`[URL:${url}] WARN: ${message} [UID:${currUID}]`);
     }
 };
 
@@ -46,38 +47,58 @@ const triggerClickEvent = async (page) => {
         return page;
     }
 }
-
+// Method may fall into the rare condition that a new tab is opened  
+// and the timeout is reached after 3 minutes, in such a case it will continue operations on the old tab
 const triggerFocusBlurEvent = async (page) => {
     try {
-        const inputElements = await page.$$('input');
+        // Create a promise that will resolve after a timeout
+        const timeoutPromise = new Promise(resolve => {
+            setTimeout(() => {
+                logger.log('triggerFocusBlurEvent timed out - continuing execution');
+                resolve(page);
+            }, 180000); // 3 minute timeout
+        });
 
-        for (const input of inputElements) {
+        // Create the actual function logic as a promise
+        const functionPromise = (async () => {
             try {
-                // Scroll the element into view
-                await page.evaluate((element) => {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-                }, input);
+                const inputElements = await page.$$('input');
 
-                // Wait for the element to be visible and clickable
-                await page.waitForSelector('input', { visible: true, timeout: 1500});
+                for (const input of inputElements) {
+                    try {
+                        // Scroll the element into view
+                        await page.evaluate((element) => {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                        }, input);
 
-                // Click the element
-                await input.click({timeout:0});
-                logger.log('Clicked input element');
+                        // Wait for the element to be visible and clickable
+                        await page.waitForSelector('input', { visible: true, timeout: 1500 });
 
-                // Check for navigation after input click
-                const newPage = await detectNavigationOrNewTab(page);
-                if (newPage !== null && newPage !== page) {
-                    logger.log('Navigation detected after input click');
-                    return newPage;
+                        // Click the element
+                        await input.click({timeout: 1500});
+                        logger.log('Clicked input element');
+
+                        // Check for navigation after input click
+                        const newPage = await detectNavigationOrNewTab(page);
+                        if (newPage !== null && newPage !== page) {
+                            logger.log('Navigation detected after input click');
+                            return newPage;
+                        }
+                    } catch (error) {
+                        logger.log('Error clicking input element - continuing to next');
+                    }
                 }
-            } catch (error) {
-                logger.log('Error clicking input element');
+                return page;
+            } catch (e) {
+                logger.error('Error in triggerFocusBlurEvent inner function', e);
+                return page;
             }
-        }
-        return page;
+        })();
+
+        // Race the function execution against the timeout
+        return await Promise.race([functionPromise, timeoutPromise]);
     } catch (e) {
-        logger.error('Error in triggerFocusBlurEvent', e);
+        logger.error('Error in triggerFocusBlurEvent outer try/catch', e);
         return page;
     }
 }
@@ -640,24 +661,25 @@ function main() {
                     // '--disable-extensions-except=/app/node/consent-o-matic',
                     // '--load-extension=/app/node/consent-o-matic',
                 ];
-    // The raw extra arguments (after the first 5) might include additional crawler arguments
-    let rawArgs = process.argv.slice(5);
+    // The raw extra arguments (after the first 6) might include additional crawler arguments
+    let rawArgs = process.argv.slice(6);
 
 
     
     program
         .version('1.0.0');
     program
-        .command("visit <URL> <uid>")
+        .command("visit <directURL> <URL> <uid>")
         .option( '--headless <headless>', 'Which headless mode to run visiblev8', 'new')
         .option( '--loiter-time <loiter_time>', 'Amount of time to loiter on a webpage', DEFAULT_LOITER_TIME)
         .option( '--nav-time <nav_time>', 'Amount of time to wait for a page to load', DEFAULT_NAV_TIME)
         .option('--actions <actions>', 'JSON formatted actions', "")  // Added actions option
         .allowUnknownOption(true)
         .description("Visit the given URL and store it under the UID, creating a page record and collecting all data")
-        .action(async function(input_url, uid, options) {
+        .action(async function(target_url, input_url, uid, options) {
             // Set current URL to be used in all logging
-            currentUrl = input_url;
+            currentUrl = target_url;
+            currUID = uid;
             
             // Remove any "--actions" flag and its value from the raw arguments.
             // This ensures that the extra arguments contain only crawler options.
@@ -742,6 +764,7 @@ function main() {
             const url = new URL(input_url);
             logger.log('Visiting url: ' + url);
             logger.log('Crawl options: ' + JSON.stringify(options));
+            let originalPage = page; // Store the original page where HAR recording started
             try {
                 await har.start({ path: `${uid}.har` });
                 try{
@@ -800,6 +823,9 @@ function main() {
                           logger.log('Executing Actions');
                           await fillInputFields(page);
                           page = await executeActions(page, actions);
+                          if (page !== originalPage) {
+                            logger.log('Page reference changed during actions');
+                        }
                           await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
@@ -829,7 +855,43 @@ function main() {
                 
             }
             logger.log('Pid of browser process: ' + browser.process().pid);
-            await har.stop();
+
+                        // Critical fix: Stop HAR recording on the original page if it's still open
+            try {
+                if (!originalPage.isClosed()) {
+                    await har.stop();
+                } else {
+                    console.log('Original page was closed, creating a new HAR file manually');
+                    // Create an empty HAR file as a fallback
+                    const emptyHar = {
+                        log: {
+                            version: '1.2',
+                            creator: {
+                                name: 'Puppeteer HAR',
+                                version: '1.0.0',
+                            },
+                            pages: [],
+                            entries: []
+                        }
+                    };
+                    fs.writeFileSync(`./${uid}.har`, JSON.stringify(emptyHar));
+                }
+            } catch (harError) {
+                console.log('Error stopping HAR recording:', harError);
+                // Create an empty HAR file as a fallback
+                const emptyHar = {
+                    log: {
+                        version: '1.2',
+                        creator: {
+                            name: 'Puppeteer HAR',
+                            version: '1.0.0',
+                        },
+                        pages: [],
+                        entries: []
+                    }
+                };
+                fs.writeFileSync(`./${uid}.har`, JSON.stringify(emptyHar));
+            }
             await page.close();
             await browser.close();
             logger.log(`Finished crawling, cleaning up...`);
