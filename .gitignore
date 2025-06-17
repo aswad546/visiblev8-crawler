@@ -215,4 +215,5 @@ celery_workers/chromium*
 celery_workers/visiblev8*
 out.txt
 urls.txt
-urls2.txt
+urls2.txt*.csv
+*.json
