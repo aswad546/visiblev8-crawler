@@ -36,72 +36,45 @@ const triggerClickEvent = async (page) => {
         }); 
         
         // Check for navigation after click
-        const newPage = await detectNavigationOrNewTab(page);
-        if (newPage !== null) {
-            logger.log('Navigation detected after click event');
-            return newPage;
-        }
+        const newPage = await detectNavigationOrNewTab(page,false);
         return page;
+
     } catch (e) {
         logger.error('Error in triggerClickEvent', e);
         return page;
     }
 }
-// Method may fall into the rare condition that a new tab is opened  
-// and the timeout is reached after 3 minutes, in such a case it will continue operations on the old tab
+
 const triggerFocusBlurEvent = async (page) => {
     try {
-        // Create a promise that will resolve after a timeout
-        const timeoutPromise = new Promise(resolve => {
-            setTimeout(() => {
-                logger.log('triggerFocusBlurEvent timed out - continuing execution');
-                resolve(page);
-            }, 180000); // 3 minute timeout
-        });
-
-        // Create the actual function logic as a promise
-        const functionPromise = (async () => {
-            try {
-                const inputElements = await page.$$('input');
-
-                for (const input of inputElements) {
-                    try {
-                        // Scroll the element into view
-                        await page.evaluate((element) => {
-                            element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-                        }, input);
-
-                        // Wait for the element to be visible and clickable
-                        await page.waitForSelector('input', { visible: true, timeout: 1500 });
-
-                        // Click the element
-                        await input.click({timeout: 1500});
-                        logger.log('Clicked input element');
-
-                        // Check for navigation after input click
-                        const newPage = await detectNavigationOrNewTab(page);
-                        if (newPage !== null && newPage !== page) {
-                            logger.log('Navigation detected after input click');
-                            return newPage;
-                        }
-                    } catch (error) {
-                        logger.log('Error clicking input element - continuing to next');
-                    }
-                }
-                return page;
-            } catch (e) {
-                logger.error('Error in triggerFocusBlurEvent inner function', e);
-                return page;
-            }
-        })();
-
-        // Race the function execution against the timeout
-        return await Promise.race([functionPromise, timeoutPromise]);
+      const inputElements = await page.$$('input');
+  
+      for (const input of inputElements) {
+        try {
+          // Scroll the element into view
+          await page.evaluate((element) => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }, input);
+  
+          // Wait for the element to be visible and clickable
+          await page.waitForSelector('input', { visible: true, timeout: 1500 });
+  
+          // Click the element
+          await input.click({timeout: 1500});
+          logger.log('Clicked input element');
+  
+          // Check for navigation after input click
+          const newPage = await detectNavigationOrNewTab(page, false);
+        } catch (error) {
+          logger.log('Error clicking input element - continuing to next');
+        }
+      }
+      return page;
     } catch (e) {
-        logger.error('Error in triggerFocusBlurEvent outer try/catch', e);
-        return page;
+      logger.error('Error in triggerFocusBlurEvent', e);
+      return page;
     }
-}
+  }
 
 const triggerDoubleClickEvent = async(page) => {
     try {
@@ -119,11 +92,7 @@ const triggerDoubleClickEvent = async(page) => {
         });
         
         // Check for navigation after double click
-        const newPage = await detectNavigationOrNewTab(page);
-        if (newPage !== null) {
-            logger.log('Navigation detected after double click event');
-            return newPage;
-        }
+        const newPage = await detectNavigationOrNewTab(page, false);
         return page;
     } catch (e) {
         logger.error('Error in triggerDoubleClickEvent', e);
@@ -310,91 +279,145 @@ async function fillInputFields(page) {
 
   const triggerEventHandlers = async (page) => {
     await sleep(5000);
-
+    
+    // Define a helper function to execute a trigger with a timeout
+    const executeWithTimeout = async (triggerFunction, functionName, timeoutMs = 30000) => {
+      let timeoutId;
+      
+      try {
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error(`${functionName} timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+        });
+        
+        const result = await Promise.race([
+          triggerFunction(),
+          timeoutPromise
+        ]);
+        
+        return result;
+      } catch (error) {
+        logger.error(`${functionName} execution stopped: ${error.message}`);
+        return page; // Return the original page on timeout
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    };
+    
+    // Execute each trigger method with a timeout
     try {
-        logger.log('Triggering the click event');
-        const pageAfterClick = await triggerClickEvent(page);
-        if (pageAfterClick !== page) {
-            page = pageAfterClick;
-        }
-
+      logger.log('Triggering the click event');
+      page = await executeWithTimeout(
+        () => triggerClickEvent(page), 
+        'triggerClickEvent',
+        10000 // 15 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering click event', e);
+      logger.error('Error triggering click event', e);
     }
-
+  
     try {
-        logger.log('Triggering double click event');
-        const pageAfterDoubleClick = await triggerDoubleClickEvent(page);
-        if (pageAfterDoubleClick !== page) {
-            page = pageAfterDoubleClick;
-        }
-
+      logger.log('Triggering double click event');
+      page = await executeWithTimeout(
+        () => triggerDoubleClickEvent(page), 
+        'triggerDoubleClickEvent',
+        10000 // 10 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering double click event', e);
+      logger.error('Error triggering double click event', e);
     }
-
+  
     try {
-        logger.log('Triggering the focus blur event');
-        const pageAfterFocusBlur = await triggerFocusBlurEvent(page);
-        if (pageAfterFocusBlur !== page) {
-            page = pageAfterFocusBlur;
-        }
-
+      logger.log('Triggering the focus blur event');
+      page = await executeWithTimeout(
+        () => triggerFocusBlurEvent(page), 
+        'triggerFocusBlurEvent',
+        240000 // 60 second timeout (this one might need longer as it works on multiple inputs)
+      );
     } catch (e) {
-        logger.error('Error triggering focus blur event', e);
+      logger.error('Error triggering focus blur event', e);
     }
-
+  
     try {
-        logger.log('Triggering mouse events');
-        await triggerMouseEvents(page);
+      logger.log('Triggering mouse events');
+      await executeWithTimeout(
+        () => triggerMouseEvents(page), 
+        'triggerMouseEvents',
+        20000 // 20 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering mouse events', e);
+      logger.error('Error triggering mouse events', e);
     }
-
+  
     try {
-        logger.log('Triggering keyboard events');
-        await triggerKeyEvents(page);
+      logger.log('Triggering keyboard events');
+      await executeWithTimeout(
+        () => triggerKeyEvents(page), 
+        'triggerKeyEvents',
+        15000 // 10 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering keyboard events', e);
+      logger.error('Error triggering keyboard events', e);
     }
-
+  
     try {
-        logger.log('Triggering copy/paste events');
-        await triggerCopyPasteEvents(page);
+      logger.log('Triggering copy/paste events');
+      await executeWithTimeout(
+        () => triggerCopyPasteEvents(page), 
+        'triggerCopyPasteEvents',
+        15000 // 10 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering copy/paste events', e);
+      logger.error('Error triggering copy/paste events', e);
     }
-
+  
     try {
-        logger.log('Triggering scroll/wheel events');
-        await triggerScrollEvent(page);
+      logger.log('Triggering scroll/wheel events');
+      await executeWithTimeout(
+        () => triggerScrollEvent(page), 
+        'triggerScrollEvent',
+        30000 // 30 second timeout (scrolling might take longer on long pages)
+      );
     } catch (e) {
-        logger.error('Error triggering scroll/wheel events', e);
+      logger.error('Error triggering scroll/wheel events', e);
     }
-
+  
     try {
-        logger.log('Triggering resize events');
-        await triggerWindowResize(page);
+      logger.log('Triggering resize events');
+      await executeWithTimeout(
+        () => triggerWindowResize(page), 
+        'triggerWindowResize',
+        15000 // 5 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering resize events', e);
+      logger.error('Error triggering resize events', e);
     }
-
+  
     try {
-        logger.log('Triggering orientation events');
-        await triggerOrientationChangeEvents(page);
+      logger.log('Triggering orientation events');
+      await executeWithTimeout(
+        () => triggerOrientationChangeEvents(page), 
+        'triggerOrientationChangeEvents',
+        5000 // 5 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering orientation events', e);
+      logger.error('Error triggering orientation events', e);
     }
-
+  
     try {
-        logger.log('Triggering touch events');
-        await triggerTouchEvents(page);
+      logger.log('Triggering touch events');
+      await executeWithTimeout(
+        () => triggerTouchEvents(page), 
+        'triggerTouchEvents',
+        15000 // 10 second timeout
+      );
     } catch (e) {
-        logger.error('Error triggering touch events', e);
+      logger.error('Error triggering touch events', e);
     }
+    
     return page; // Return the final page reference
-}
-
+  };
 const configureConsentOMatic = async (browser) => {
     const page = await browser.newPage();
     
@@ -530,7 +553,7 @@ async function selectOptions(page, selectOptionsArray) {
     }
   }
 
-  async function detectNavigationOrNewTab(page) {
+  async function detectNavigationOrNewTab(page, followNewTab = true) {
     let timeoutId = null;
     let targetListener = null;
     let navigationPromise = null;
@@ -562,14 +585,24 @@ async function selectOptions(page, selectOptionsArray) {
           })
           .catch(() => null);  // Just return null on timeout
         
-        // Second promise: new tab detection
+        // Second promise: new tab detection - now with conditional following
         targetListener = async (target) => {
           if (target.opener() === page.target()) {
             const newPage = await target.page();
-            await newPage.bringToFront();
-            logger.log('New tab detected');
-            cleanup();
-            mainResolve(newPage);
+            
+            if (followNewTab) {
+              // Follow the new tab
+              await newPage.bringToFront();
+              logger.log('New tab detected - following new tab');
+              cleanup();
+              mainResolve(newPage);
+            } else {
+              // Stay on current tab, optionally close the new tab
+              logger.log('New tab detected - staying on current tab');
+              await newPage.close().catch(err => logger.error('Error closing new tab:', err));
+              cleanup();
+              mainResolve(page);
+            }
           }
         };
         
@@ -746,7 +779,7 @@ function main() {
                 executablePath: '/opt/chromium.org/chromium/chrome',
                 args: combined_crawler_args,
                 timeout: 600 * 1000,
-                protocolTimeout: 60 * 1000,
+                protocolTimeout: 30 * 1000,
             });
 
             // await configureConsentOMatic(browser)
@@ -826,7 +859,7 @@ function main() {
                           if (page !== originalPage) {
                             logger.log('Page reference changed during actions');
                         }
-                          await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
+                        //   await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
                       
@@ -843,9 +876,13 @@ function main() {
                         throw ex;
                     }
                 }
-                if ( !options.disable_screenshots )
-                    await page.screenshot({path: `./${uid}.png`, fullPage: true, timeout: 0 });
-
+                // if ( !options.disable_screenshots )
+                  // try{
+                  //   await page.screenshot({path: `./${uid}.png`, fullPage: true, timeout: 0 });                  
+                  // } catch(e) {
+                  //   logger.error('Failed to capture screenshot')
+                  // }
+                    
                     
             } catch (ex) {
                 if (ex.message != 'Found or Not Found') {

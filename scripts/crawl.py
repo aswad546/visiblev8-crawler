@@ -33,8 +33,8 @@ class Crawler:
         self.output_format = output_format
         self.post_processors = post_processors
         self.delete_log_after_parsing = delete_log_after_parsing
-        self.disable_artifact_collection = disable_artifact_collection
-        self.disable_screenshots = disable_screenshots
+        self.disable_artifact_collection = True
+        self.disable_screenshots = True
         self.disable_har = disable_har
         self.crawler_args = crawler_args
         self.hard_timeout = hard_timeout
@@ -113,13 +113,13 @@ class Crawler:
                     'url': url,
                     'rerun': True,
                     'crawler_args': self.crawler_args,
-                    'disable_artifact_collection': self.disable_artifact_collection,
-                    'disable_screenshots': self.disable_screenshots,
+                    'disable_artifact_collection': True,
+                    'disable_screenshots': True,
                     'disable_har': self.disable_har,
                     'hard_timeout': self.hard_timeout,
                     'parser_config': {
                         'parser': self.post_processors,
-                        'delete_log_after_parsing': self.delete_log_after_parsing,
+                        'delete_log_after_parsing': True,
                         'output_format': self.output_format,
                         }
                     })
@@ -127,13 +127,13 @@ class Crawler:
                     'url': url,
                     'rerun': True,
                     'crawler_args': self.crawler_args,
-                    'disable_artifact_collection': self.disable_artifact_collection,
-                    'disable_screenshots': self.disable_screenshots,
+                    'disable_artifact_collection': True,
+                    'disable_screenshots': True,
                     'disable_har': self.disable_har,
                     'hard_timeout': self.hard_timeout,
                     'parser_config': {
                         'parser': self.post_processors,
-                        'delete_log_after_parsing': self.delete_log_after_parsing,
+                        'delete_log_after_parsing': True,
                         'output_format': self.output_format,
                         },
                     })
@@ -141,7 +141,7 @@ class Crawler:
                 r = requests.post(f'http://{self.data_store.hostname}:4000/api/v1/urlsubmit', json={
                     'url': url,
                     'rerun': True,
-                    'disable_screenshots': self.disable_screenshots,
+                    'disable_screenshots': True,
                     'disable_har': self.disable_har,
                 })
             submission_id = r.json()['submission_id']
@@ -180,13 +180,13 @@ class Crawler:
                 'rerun': True,
                 'crawler_args': self.crawler_args,
                 'task_id': task_id,
-                'disable_artifact_collection': self.disable_artifact_collection,
-                'disable_screenshots': self.disable_screenshots,
+                'disable_artifact_collection': True,
+                'disable_screenshots': True,
                 'disable_har': self.disable_har,
                 'hard_timeout': self.hard_timeout,
                 'parser_config': {
                     'parser': 'flow',
-                    'delete_log_after_parsing': self.delete_log_after_parsing,
+                    'delete_log_after_parsing': True,
                     'output_format': self.output_format,
                     }
                 })
@@ -197,13 +197,13 @@ class Crawler:
                 'rerun': True,
                 'task_id': task_id,
                 'crawler_args': self.crawler_args,
-                'disable_artifact_collection': self.disable_artifact_collection,
-                'disable_screenshots': self.disable_screenshots,
+                'disable_artifact_collection': True,
+                'disable_screenshots': True,
                 'disable_har': self.disable_har,
                 'hard_timeout': self.hard_timeout,
                 'parser_config': {
                     'parser': 'flow', #Post processor will always be flow for my study
-                    'delete_log_after_parsing': self.delete_log_after_parsing,
+                    'delete_log_after_parsing': True,
                     'output_format': self.output_format,
                     },
                 })
@@ -291,8 +291,8 @@ def crawler( args: argparse.Namespace, unknown_args: list[str]):
     output_format = args.output_format
     parsers = args.post_processors
     delete_log_after_parsing = args.delete_log_after_parsing
-    disable_artifact_collection = args.disable_artifact_collection
-    disable_screenshots = args.disable_screenshots
+    disable_artifact_collection = True
+    disable_screenshots = True
     disable_har = args.disable_har
     hard_timeout = int(args.timeout)
     server_load_check = args.server_load_check

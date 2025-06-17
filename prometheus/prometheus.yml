@@ -6,11 +6,32 @@ scrape_configs:
   - job_name: 'otel-collector'
     static_configs:
       - targets: ['otel-collector:8889']
+  
   - job_name: 'celery'
     static_configs:
       - targets: ['celery_exporter:9808']
+      
+  - job_name: flower
+    static_configs:
+      - targets: ['localhost:5555']
+  
   - job_name: 'vv8-queue'
     static_configs:
-      - targets: ['172.17.0.1:9121']  # Redis Exporter's metrics endpoint
- 
+      - targets: ['172.17.0.1:9121'] # Redis Exporter's metrics endpoint
   
+  - job_name: 'vllm'
+    scrape_interval: 5s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['172.17.0.1:8000']
+  
+  - job_name: 'click_position_vllm'
+    scrape_interval: 5s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['172.17.0.1:8002']
+  # - job_name: 'a100-vllm-qwen'
+  #   scrape_interval: 5s
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['172.17.0.1:8007']

@@ -1,0 +1,185 @@
+{
+  "balanced_small": {
+    "params": {
+      "n_estimators": 100,
+      "max_depth": 10,
+      "max_features": "log2",
+      "min_samples_split": 2
+    },
+    "validation_auc": 1.0,
+    "test_auc": 1.0,
+    "test_ap": 1.0,
+    "default_threshold": {
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "predictions": 0.0
+    },
+    "optimal_threshold": {
+      "threshold": 0.25,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "predictions": 21.0
+    },
+    "probability_analysis": {
+      "positive_samples": {
+        "count": 21,
+        "mean_prob": 0.44619047619047625,
+        "max_prob": 0.49,
+        "min_prob": 0.25
+      },
+      "negative_samples": {
+        "count": 7,
+        "mean_prob": 0.04428571428571428,
+        "max_prob": 0.07,
+        "min_prob": 0.03
+      }
+    },
+    "top_5_features": [
+      {
+        "feature": "behavioral_source_api_count",
+        "importance": 0.22688579046585514
+      },
+      {
+        "feature": "keyboard_event_count",
+        "importance": 0.19372583144207023
+      },
+      {
+        "feature": "fingerprinting_source_api_count",
+        "importance": 0.1710614599114705
+      },
+      {
+        "feature": "max_api_aggregation_score",
+        "importance": 0.08988363200665844
+      },
+      {
+        "feature": "mouse_event_count",
+        "importance": 0.050116625152976185
+      }
+    ]
+  },
+  "balanced_all": {
+    "params": {
+      "n_estimators": 100,
+      "max_depth": 10,
+      "max_features": "log2",
+      "min_samples_split": 2
+    },
+    "validation_auc": 1.0,
+    "test_auc": 0.9292929292929293,
+    "test_ap": 0.9836244187735792,
+    "default_threshold": {
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "predictions": 0.0
+    },
+    "optimal_threshold": {
+      "threshold": 0.03,
+      "precision": 0.9759036144578314,
+      "recall": 1.0,
+      "f1": 0.9878048780487805,
+      "predictions": 83.0
+    },
+    "probability_analysis": {
+      "positive_samples": {
+        "count": 81,
+        "mean_prob": 0.08,
+        "max_prob": 0.12,
+        "min_prob": 0.03
+      },
+      "negative_samples": {
+        "count": 11,
+        "mean_prob": 0.014545454545454545,
+        "max_prob": 0.09,
+        "min_prob": 0.0
+      }
+    },
+    "top_5_features": [
+      {
+        "feature": "total_fp_api_accesses",
+        "importance": 0.2941905311194722
+      },
+      {
+        "feature": "fingerprinting_source_api_count",
+        "importance": 0.18972782199683982
+      },
+      {
+        "feature": "max_api_aggregation_score",
+        "importance": 0.13329804986795887
+      },
+      {
+        "feature": "fp_api_agg_count",
+        "importance": 0.0875464721572506
+      },
+      {
+        "feature": "mouse_event_count",
+        "importance": 0.049203466219579196
+      }
+    ]
+  },
+  "imbalanced_all": {
+    "params": {
+      "n_estimators": 100,
+      "max_depth": 10,
+      "max_features": "log2",
+      "min_samples_split": 2
+    },
+    "validation_auc": 1.0,
+    "test_auc": 0.9502442002442003,
+    "test_ap": 0.7434667261678334,
+    "default_threshold": {
+      "threshold": 0.5,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "predictions": 0.0
+    },
+    "optimal_threshold": {
+      "threshold": 0.04,
+      "precision": 0.8095238095238095,
+      "recall": 0.8395061728395061,
+      "f1": 0.8242424242424242,
+      "predictions": 84.0
+    },
+    "probability_analysis": {
+      "positive_samples": {
+        "count": 81,
+        "mean_prob": 0.04864197530864197,
+        "max_prob": 0.16,
+        "min_prob": 0.01
+      },
+      "negative_samples": {
+        "count": 364,
+        "mean_prob": 0.005795857500297071,
+        "max_prob": 0.18,
+        "min_prob": 0.0
+      }
+    },
+    "top_5_features": [
+      {
+        "feature": "total_fp_api_accesses",
+        "importance": 0.2828241707574495
+      },
+      {
+        "feature": "fingerprinting_source_api_count",
+        "importance": 0.18123300546207197
+      },
+      {
+        "feature": "max_api_aggregation_score",
+        "importance": 0.13728071590770158
+      },
+      {
+        "feature": "fp_api_agg_count",
+        "importance": 0.09634985071348925
+      },
+      {
+        "feature": "behavioral_source_api_count",
+        "importance": 0.060327499459036704
+      }
+    ]
+  }
+}
