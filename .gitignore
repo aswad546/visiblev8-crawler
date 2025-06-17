@@ -21,6 +21,11 @@ graphana/*
 redis_data/*
 !redis_data
 
+LoginGPT_banks_8500_result.json
+script_classification/heuristics/vendor_aware_robust_results/balanced_test_20250528_011003.csv
+script_classification/heuristics/vendor_aware_robust_results/balanced_train_20250528_011003.csv
+script_classification/heuristics/vendor_aware_robust_results/imbalanced_test_20250528_011003.csv
+script_classification/heuristics/vendor_aware_robust_results/imbalanced_train_20250528_011003.csv
 
 # Distribution / packaging
 .Python
