@@ -219,3 +219,6 @@ urls2.txt*.csv
 *.json
 *.csv
 LoginGPT_banks_8500_result.json
+# Large data files
+script_classification/heuristics/vendor_aware_robust_results/*.csv
+LoginGPT_banks_8500_result.json
