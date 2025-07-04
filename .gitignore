@@ -217,3 +217,5 @@ out.txt
 urls.txt
 urls2.txt*.csv
 *.json
+*.csv
+LoginGPT_banks_8500_result.json
