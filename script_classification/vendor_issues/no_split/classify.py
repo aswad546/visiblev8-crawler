@@ -42,20 +42,20 @@ class MalwareClassificationPipeline:
         self.feature_columns = None
         self.model_metadata = None
         
-        # Expected feature columns based on your selection
+        # Expected feature columns based on your binary model
         self.expected_features = [
-            'fp_approach_diversity',
-            'collection_intensity', 
-            'tracks_coordinates',
             'complexity_tier',
-            'uses_canvas_fp',
-            'sophistication_score',
-            'interaction_diversity',
             'uses_screen_fp',
+            'fp_approach_diversity',
+            'total_aggregation_count',
+            'collection_intensity',
+            'interaction_diversity',
+            'tracks_coordinates',
+            'max_api_aggregation_score',
+            'sophistication_score',
             'tracks_device_motion',
-            'tracks_mouse',
-            'tracks_timing',
-            'has_multi_input_types'
+            'behavioral_api_agg_count',
+            'uses_canvas_fp'
         ]
         
     def load_model(self):
@@ -90,6 +90,7 @@ class MalwareClassificationPipeline:
                     self.feature_columns = self.expected_features
                     
             logger.info(f"Model loaded successfully. Expected features: {len(self.feature_columns)}")
+            logger.info(f"Feature columns: {self.feature_columns}")
             return True
             
         except Exception as e:
@@ -125,7 +126,7 @@ class MalwareClassificationPipeline:
     def create_vendor_agnostic_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Create vendor-agnostic features from raw database records
-        This is based on the working feature extraction code you provided
+        Updated to match the binary model's feature set
         """
         logger.info("Creating vendor-agnostic features...")
         features_list = []
@@ -134,113 +135,138 @@ class MalwareClassificationPipeline:
             try:
                 features = {}
                 
-                # Safe extraction without pd.isna() on lists
+                # Safe extraction
                 behavioral_access = row['behavioral_apis_access_count'] if row['behavioral_apis_access_count'] is not None else {}
                 fp_access = row['fingerprinting_api_access_count'] if row['fingerprinting_api_access_count'] is not None else {}
                 behavioral_sources = row['behavioral_source_apis'] if row['behavioral_source_apis'] is not None else []
                 fp_sources = row['fingerprinting_source_apis'] if row['fingerprinting_source_apis'] is not None else []
                 sink_data = row['apis_going_to_sink'] if row['apis_going_to_sink'] is not None else {}
-                
-                # === VENDOR-AGNOSTIC BEHAVIORAL PATTERNS ===
-                
-                # 1. RELATIVE COMPLEXITY
+
+                # === AGGREGATION FEATURES ===
+                max_agg = row.get('max_api_aggregation_score', 0)
+                behavioral_agg = row.get('behavioral_api_agg_count', 0)
+                fp_agg = row.get('fp_api_agg_count', 0)
+
+                max_agg = 0 if (pd.isna(max_agg) or max_agg == -1) else max_agg
+                behavioral_agg = 0 if (pd.isna(behavioral_agg) or behavioral_agg == -1) else behavioral_agg
+                fp_agg = 0 if (pd.isna(fp_agg) or fp_agg == -1) else fp_agg
+
+                features['max_api_aggregation_score'] = max_agg
+                features['behavioral_api_agg_count'] = behavioral_agg
+                features['fp_api_agg_count'] = fp_agg
+                features['total_aggregation_count'] = behavioral_agg + fp_agg
+                features['has_aggregation'] = int(max_agg > 0)
+
+                total_agg = behavioral_agg + fp_agg
+                if total_agg > 0:
+                    features['behavioral_agg_ratio'] = behavioral_agg / total_agg
+                    features['fp_agg_ratio'] = fp_agg / total_agg
+                else:
+                    features['behavioral_agg_ratio'] = 0
+                    features['fp_agg_ratio'] = 0
+
+                features['has_behavioral_aggregation'] = int(behavioral_agg > 0)
+                features['has_fp_aggregation'] = int(fp_agg > 0)
+                features['has_both_aggregation_types'] = int(behavioral_agg > 0 and fp_agg > 0)
+
+                # === BEHAVIORAL FOCUS RATIOS ===
                 total_behavioral = len(behavioral_sources) if behavioral_sources is not None else 0
                 total_fp = len(fp_sources) if fp_sources is not None else 0
                 total_apis = total_behavioral + total_fp
-                
+
                 if total_apis > 0:
                     features['behavioral_focus_ratio'] = total_behavioral / total_apis
                     features['fp_focus_ratio'] = total_fp / total_apis
                 else:
                     features['behavioral_focus_ratio'] = 0
                     features['fp_focus_ratio'] = 0
-                
-                # 2. INTERACTION PATTERN DIVERSITY
+
+                # === INTERACTION PATTERN DIVERSITY ===
                 event_types = set()
-                if behavioral_sources is not None:
-                    for api in behavioral_sources:
-                        api_str = str(api)
-                        if 'MouseEvent' in api_str:
-                            event_types.add('mouse')
-                        elif 'KeyboardEvent' in api_str:
-                            event_types.add('keyboard')
-                        elif 'TouchEvent' in api_str or 'Touch.' in api_str:
-                            event_types.add('touch')
-                        elif 'PointerEvent' in api_str:
-                            event_types.add('pointer')
-                        elif 'DeviceMotion' in api_str or 'DeviceOrientation' in api_str:
-                            event_types.add('device')
-                        elif 'WheelEvent' in api_str:
-                            event_types.add('wheel')
-                        elif 'FocusEvent' in api_str:
-                            event_types.add('focus')
-                
+                for api in behavioral_sources:
+                    api_str = str(api)
+                    if 'MouseEvent' in api_str:
+                        event_types.add('mouse')
+                    elif 'KeyboardEvent' in api_str:
+                        event_types.add('keyboard')
+                    elif 'TouchEvent' in api_str or 'Touch.' in api_str:
+                        event_types.add('touch')
+                    elif 'PointerEvent' in api_str:
+                        event_types.add('pointer')
+                    elif 'DeviceMotion' in api_str or 'DeviceOrientation' in api_str:
+                        event_types.add('device')
+                    elif 'WheelEvent' in api_str:
+                        event_types.add('wheel')
+                    elif 'FocusEvent' in api_str:
+                        event_types.add('focus')
+
                 features['interaction_diversity'] = len(event_types)
                 features['has_multi_input_types'] = int(len(event_types) >= 3)
-                
-                # 3. SOPHISTICATION PATTERNS
+
+                # === SOPHISTICATION PATTERNS ===
                 coordinate_apis = 0
                 timing_apis = 0
                 device_apis = 0
-                
-                if behavioral_sources is not None:
-                    for api in behavioral_sources:
-                        api_str = str(api)
-                        if any(coord in api_str for coord in ['clientX', 'clientY', 'screenX', 'screenY', 'pageX', 'pageY']):
-                            coordinate_apis += 1
-                        if any(timing in api_str for timing in ['timeStamp', 'interval']):
-                            timing_apis += 1
-                        if 'DeviceMotion' in api_str or 'DeviceOrientation' in api_str:
-                            device_apis += 1
-                
+
+                for api in behavioral_sources:
+                    api_str = str(api)
+                    if any(coord in api_str for coord in ['clientX', 'clientY', 'screenX', 'screenY', 'pageX', 'pageY']):
+                        coordinate_apis += 1
+                    if any(timing in api_str for timing in ['timeStamp', 'interval']):
+                        timing_apis += 1
+                    if 'DeviceMotion' in api_str or 'DeviceOrientation' in api_str:
+                        device_apis += 1
+
                 features['tracks_coordinates'] = int(coordinate_apis > 0)
                 features['tracks_timing'] = int(timing_apis > 0)
                 features['tracks_device_motion'] = int(device_apis > 0)
                 features['sophistication_score'] = features['tracks_coordinates'] + features['tracks_timing'] + features['tracks_device_motion']
-                
-                # 4. FINGERPRINTING CATEGORIES
+
+                # === FINGERPRINTING CATEGORIES ===
                 navigator_apis = 0
                 screen_apis = 0
                 canvas_apis = 0
                 audio_apis = 0
-                
-                if fp_sources is not None:
-                    for api in fp_sources:
-                        api_str = str(api)
-                        if 'Navigator.' in api_str:
-                            navigator_apis += 1
-                        if 'Screen.' in api_str:
-                            screen_apis += 1
-                        if 'Canvas' in api_str or 'WebGL' in api_str:
-                            canvas_apis += 1
-                        if 'Audio' in api_str:
-                            audio_apis += 1
-                
+
+                for api in fp_sources:
+                    api_str = str(api)
+                    if 'Navigator.' in api_str:
+                        navigator_apis += 1
+                    if 'Screen.' in api_str:
+                        screen_apis += 1
+                    if 'Canvas' in api_str or 'WebGL' in api_str:
+                        canvas_apis += 1
+                    if 'Audio' in api_str:
+                        audio_apis += 1
+
                 features['uses_navigator_fp'] = int(navigator_apis > 0)
                 features['uses_screen_fp'] = int(screen_apis > 0)
                 features['uses_canvas_fp'] = int(canvas_apis > 0)
                 features['uses_audio_fp'] = int(audio_apis > 0)
-                features['fp_approach_diversity'] = features['uses_navigator_fp'] + features['uses_screen_fp'] + features['uses_canvas_fp'] + features['uses_audio_fp']
-                
-                # 5. ACCESS INTENSITY
+                features['fp_approach_diversity'] = (
+                    features['uses_navigator_fp'] + features['uses_screen_fp'] +
+                    features['uses_canvas_fp'] + features['uses_audio_fp']
+                )
+
+                # === ACCESS INTENSITY ===
                 total_behavioral_accesses = sum(behavioral_access.values()) if behavioral_access else 0
                 total_fp_accesses = sum(fp_access.values()) if fp_access else 0
                 total_accesses = total_behavioral_accesses + total_fp_accesses
-                
+
                 features['collection_intensity'] = total_accesses / max(total_apis, 1)
                 features['behavioral_access_ratio'] = total_behavioral_accesses / max(total_accesses, 1) if total_accesses > 0 else 0
-                
-                # 6. DATA FLOW PATTERNS
+
+                # === DATA FLOW PATTERNS ===
                 features['has_data_collection'] = int(len(sink_data) > 0) if sink_data else 0
                 features['collection_method_diversity'] = len(sink_data) if sink_data else 0
-                
-                # 7. BINARY TRACKING CAPABILITIES
+
+                # === BINARY TRACKING CAPABILITIES ===
                 features['tracks_mouse'] = int(any('MouseEvent' in str(api) for api in behavioral_sources)) if behavioral_sources else 0
                 features['tracks_keyboard'] = int(any('KeyboardEvent' in str(api) for api in behavioral_sources)) if behavioral_sources else 0
                 features['tracks_touch'] = int(any('TouchEvent' in str(api) or 'Touch.' in str(api) for api in behavioral_sources)) if behavioral_sources else 0
                 features['tracks_pointer'] = int(any('PointerEvent' in str(api) for api in behavioral_sources)) if behavioral_sources else 0
-                
-                # 8. COMPLEXITY CLASSIFICATION
+
+                # === COMPLEXITY CLASSIFICATION ===
                 if total_apis == 0:
                     features['complexity_tier'] = 0
                 elif total_apis <= 5:
@@ -249,13 +275,13 @@ class MalwareClassificationPipeline:
                     features['complexity_tier'] = 2
                 else:
                     features['complexity_tier'] = 3
-                
-                # 9. BALANCE METRICS
+
+                # === BALANCE METRICS ===
                 features['is_behavioral_heavy'] = int(total_behavioral > total_fp and total_behavioral > 5)
                 features['is_fp_heavy'] = int(total_fp > total_behavioral and total_fp > 5)
                 features['is_balanced_tracker'] = int(abs(total_behavioral - total_fp) <= 3 and total_apis > 5)
-                
-                # Store metadata
+
+                # === METADATA ===
                 features['script_id'] = int(row['script_id']) if 'script_id' in row and pd.notna(row['script_id']) else idx
                 
                 features_list.append(features)
@@ -266,6 +292,16 @@ class MalwareClassificationPipeline:
         
         features_df = pd.DataFrame(features_list)
         logger.info(f"Created features for {len(features_df)} scripts")
+        
+        # Log which features are present vs expected
+        missing_features = set(self.feature_columns) - set(features_df.columns)
+        if missing_features:
+            logger.warning(f"Missing expected features: {missing_features}")
+        
+        extra_features = set(features_df.columns) - set(self.feature_columns) - {'script_id'}
+        if extra_features:
+            logger.info(f"Extra features created: {extra_features}")
+        
         return features_df
 
     def load_data_from_database(self, table_name: str, limit: Optional[int] = None) -> pd.DataFrame:
@@ -303,7 +339,7 @@ class MalwareClassificationPipeline:
         # Create results dataframe
         results_df = features_df[['script_id']].copy()
         results_df['prediction'] = predictions
-        results_df['malware_probability'] = probabilities[:, 1]  # Probability of malware class
+        results_df['behavioral_biometric_probability'] = probabilities[:, 1]  # Probability of behavioral biometric class
         results_df['benign_probability'] = probabilities[:, 0]   # Probability of benign class
         results_df['classification_timestamp'] = datetime.now()
         
@@ -316,7 +352,7 @@ class MalwareClassificationPipeline:
             labels=['low', 'medium', 'high']
         )
         
-        logger.info(f"Classification complete. {predictions.sum()} scripts classified as malware")
+        logger.info(f"Classification complete. {predictions.sum()} scripts classified as behavioral biometric")
         return results_df
 
     def create_results_table(self, table_name: str):
@@ -330,7 +366,7 @@ class MalwareClassificationPipeline:
                 id SERIAL PRIMARY KEY,
                 script_id INTEGER NOT NULL,
                 prediction INTEGER NOT NULL,
-                malware_probability FLOAT NOT NULL,
+                behavioral_biometric_probability FLOAT NOT NULL,
                 benign_probability FLOAT NOT NULL,
                 confidence FLOAT NOT NULL,
                 confidence_level VARCHAR(10),
@@ -341,7 +377,7 @@ class MalwareClassificationPipeline:
             
             CREATE INDEX IF NOT EXISTS idx_{table_name}_script_id ON {table_name}(script_id);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_prediction ON {table_name}(prediction);
-            CREATE INDEX IF NOT EXISTS idx_{table_name}_probability ON {table_name}(malware_probability);
+            CREATE INDEX IF NOT EXISTS idx_{table_name}_probability ON {table_name}(behavioral_biometric_probability);
             """
             
             cursor.execute(create_table_sql)
@@ -363,7 +399,7 @@ class MalwareClassificationPipeline:
             results_df['model_version'] = model_version
             
             # Prepare data for insertion
-            columns = ['script_id', 'prediction', 'malware_probability', 'benign_probability', 
+            columns = ['script_id', 'prediction', 'behavioral_biometric_probability', 'benign_probability', 
                       'confidence', 'confidence_level', 'classification_timestamp', 'model_version']
             
             # Insert in batches to handle large datasets
@@ -377,7 +413,7 @@ class MalwareClassificationPipeline:
                 VALUES %s
                 ON CONFLICT (script_id) DO UPDATE SET
                     prediction = EXCLUDED.prediction,
-                    malware_probability = EXCLUDED.malware_probability,
+                    behavioral_biometric_probability = EXCLUDED.behavioral_biometric_probability,
                     benign_probability = EXCLUDED.benign_probability,
                     confidence = EXCLUDED.confidence,
                     confidence_level = EXCLUDED.confidence_level,
@@ -407,14 +443,14 @@ class MalwareClassificationPipeline:
             SELECT 
                 s.*,
                 r.prediction,
-                r.malware_probability,
+                r.behavioral_biometric_probability,
                 r.benign_probability,
                 r.confidence,
                 r.confidence_level,
                 r.classification_timestamp,
                 r.model_version,
                 CASE 
-                    WHEN r.prediction = 1 THEN 'malware'
+                    WHEN r.prediction = 1 THEN 'behavioral_biometric'
                     WHEN r.prediction = 0 THEN 'benign'
                     ELSE 'unclassified'
                 END as classification_label
@@ -432,7 +468,7 @@ class MalwareClassificationPipeline:
 
     def run_pipeline(self, source_table: str, results_table: str, view_name: str, limit: Optional[int] = None):
         """Run the complete classification pipeline"""
-        logger.info("🚀 Starting Malware Classification Pipeline")
+        logger.info("🚀 Starting Behavioral Biometric Classification Pipeline")
         logger.info("=" * 60)
         
         # Load model
@@ -464,16 +500,16 @@ class MalwareClassificationPipeline:
         # Create view
         self.create_classification_view(source_table, results_table, view_name)
         
-        # Summary statistics - Fixed calculation
+        # Summary statistics
         total_scripts = len(results_df)
-        malware_count = int((results_df['prediction'] == 1).sum())
+        behavioral_biometric_count = int((results_df['prediction'] == 1).sum())
         benign_count = int((results_df['prediction'] == 0).sum())
         avg_confidence = results_df['confidence'].mean()
         
         logger.info("\n📊 CLASSIFICATION SUMMARY")
         logger.info("=" * 30)
         logger.info(f"Total scripts processed: {total_scripts:,}")
-        logger.info(f"Classified as malware: {malware_count:,} ({malware_count/total_scripts*100:.1f}%)")
+        logger.info(f"Classified as behavioral biometric: {behavioral_biometric_count:,} ({behavioral_biometric_count/total_scripts*100:.1f}%)")
         logger.info(f"Classified as benign: {benign_count:,} ({benign_count/total_scripts*100:.1f}%)")
         logger.info(f"Average confidence: {avg_confidence:.3f}")
         logger.info(f"High confidence predictions: {(results_df['confidence_level'] == 'high').sum():,}")
@@ -486,12 +522,12 @@ class MalwareClassificationPipeline:
         for level, count in confidence_breakdown.items():
             logger.info(f"  {level}: {count:,} ({count/total_scripts*100:.1f}%)")
         
-        # Malware breakdown by confidence
-        malware_by_confidence = results_df[results_df['prediction'] == 1]['confidence_level'].value_counts()
-        logger.info(f"\nMalware by Confidence Level:")
-        for level, count in malware_by_confidence.items():
-            pct_of_malware = count/malware_count*100 if malware_count > 0 else 0
-            logger.info(f"  {level}: {count:,} ({pct_of_malware:.1f}% of malware)")
+        # Behavioral biometric breakdown by confidence
+        bb_by_confidence = results_df[results_df['prediction'] == 1]['confidence_level'].value_counts()
+        logger.info(f"\nBehavioral Biometric by Confidence Level:")
+        for level, count in bb_by_confidence.items():
+            pct_of_bb = count/behavioral_biometric_count*100 if behavioral_biometric_count > 0 else 0
+            logger.info(f"  {level}: {count:,} ({pct_of_bb:.1f}% of behavioral biometric)")
         
         return True
 
@@ -508,10 +544,10 @@ if __name__ == "__main__":
     }
     
     # File paths - UPDATE THESE TO YOUR ACTUAL PATHS
-    MODEL_PATH = "malware_classifier_production_20250601_194532.pkl"  # Update with your actual model file
+    MODEL_PATH = "final_models/behavioral_biometric_classifier_binary_20250711_161434.pkl"  # Update with your actual model file
     SOURCE_TABLE = "multicore_static_info_100k_login"
-    RESULTS_TABLE = "malware_classification_results_100k_login"
-    VIEW_NAME = "classified_scripts_view_100k_rf_login"
+    RESULTS_TABLE = "rf_binary_100k_login_crux"
+    VIEW_NAME = "rf_binary_view_100k_login_crux"
     
     # Optional: limit number of records for testing (remove for full dataset)
     LIMIT = None  # Set to a number like 1000 for testing, None for all records

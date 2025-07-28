@@ -1,0 +1,22 @@
+# Behavioral Biometric Classifier - Binary Classification Model
+# Generated: 2025-07-11 16:14:34
+# Model: Random Forest (Binary: 0=benign, 1=behavioral_biometric)
+# Hyperparameters: {'n_estimators': 100, 'max_depth': 10, 'min_samples_split': 2, 'min_samples_leaf': 1, 'max_features': 'sqrt', 'class_weight': 'balanced'}
+# Total features: 12
+# Training samples: 476 (excluded label -1)
+# Positive samples: 232 (48.7%)
+# Negative samples: 244 (51.3%)
+
+FEATURES (ranked by importance):
+  6. complexity_tier                          (importance: 0.2446)
+  8. uses_screen_fp                           (importance: 0.1354)
+  1. fp_approach_diversity                    (importance: 0.1113)
+  2. total_aggregation_count                  (importance: 0.0993)
+  5. collection_intensity                     (importance: 0.0812)
+ 11. interaction_diversity                    (importance: 0.0786)
+  7. tracks_coordinates                       (importance: 0.0618)
+  3. max_api_aggregation_score                (importance: 0.0534)
+ 10. sophistication_score                     (importance: 0.0503)
+ 12. tracks_device_motion                     (importance: 0.0367)
+  9. behavioral_api_agg_count                 (importance: 0.0265)
+  4. uses_canvas_fp                           (importance: 0.0208)

@@ -1,0 +1,19 @@
+# Naive Bayes Classifier Production Model - Feature List
+# Generated: 2025-07-11 15:19:30
+# Model: Gaussian Naive Bayes with {'var_smoothing': 1e-09}
+# Total features: 12
+# Training samples: 2,229
+
+FEATURES (by discriminative power):
+  1. behavioral_api_agg_count                 (discrimination: 0.5185)
+  2. total_aggregation_count                  (discrimination: 0.4014)
+  3. max_api_aggregation_score                (discrimination: 0.4014)
+  4. interaction_diversity                    (discrimination: 0.0807)
+  5. tracks_coordinates                       (discrimination: 0.0358)
+  6. fp_approach_diversity                    (discrimination: 0.0288)
+  7. collection_intensity                     (discrimination: 0.0285)
+  8. complexity_tier                          (discrimination: 0.0185)
+  9. tracks_device_motion                     (discrimination: 0.0122)
+ 10. uses_canvas_fp                           (discrimination: 0.0085)
+ 11. uses_screen_fp                           (discrimination: 0.0055)
+ 12. sophistication_score                     (discrimination: 0.0008)

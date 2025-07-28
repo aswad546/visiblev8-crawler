@@ -200,6 +200,10 @@ web_server/vv8web/vv8-vue/node_modules/esbuild-windows-64/esbuild.exe
 screenshots
 har
 
+*.pkl
+*.joblib
+
+
 vv8db*/
 parsed_logs/
 raw_logs/
