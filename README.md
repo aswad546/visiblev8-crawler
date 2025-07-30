@@ -1,6 +1,25 @@
-# VisibleV8 Crawler
 
-The VisibleV8 Crawler is a framework which makes large scale crawling of URLs with [VisibleV8](https://github.com/wspr-ncsu/visiblev8) much easier.
+# VisibleV8 Crawler with LoginGPT Integration
+
+<p align="center"><img src="system_diagram.png"></p>
+
+The VisibleV8 Crawler is an enhanced framework for large-scale crawling of URLs with [VisibleV8](https://github.com/wspr-ncsu/visiblev8), integrated with [LoginGPT](https://github.com/aswad546/LoginGPT/tree/main) and Behavioral Biometric Static Analysis ([BBSA](https://github.com/aswad546/BehavioralBiometricSA)) capabilities. This enhanced version is based on research from "Tracking for Good: Finding Behavioral Biometrics on the Web using Static Taint Analysis" thesis. Paper is submitted for publication pending review.
+
+## Key Enhancements
+
+- **LoginGPT Integration**: Advanced login page detection using Vision Language Models
+- **BBSA Integration**: Behavioral Biometric Static Analysis for script classification
+- **Action Replay**: Ability to replicate navigation actions to reach login pages
+- **Observability Stack**: Complete monitoring with Loki, Prometheus, Jaeger, and Grafana
+- **Cross-Domain Login Support**: Track login pages that may not be subdomains of the original domain
+
+## System Architecture
+
+This repository contains comprehensive observability infrastructure where:
+- **BBSA Static Analysis** and **LoginGPT** send logs to Loki container for centralized logging
+- **Prometheus** handles metrics collection from LoginGPT
+- **Jaeger** displays LoginGPT traces for distributed tracing
+- **Grafana** visualizes Prometheus metrics as dashboards
 
 ## Setup
 
@@ -26,95 +45,213 @@ alias vv8cli="python3 $(pwd)/scripts/vv8-cli.py"
 > **Note**
 > vv8 crawler cli scripts can also be used for a shared remote server by choosing the remote installation option during the setup wizard. The list of URLs (and their submission IDs) that have been run by you (and their associated submission ids) are stored locally in a sqlite3 database at `./scripts/.vv8.db`
 
-## Run a single URL
+### Post-Processor Setup
+
+Activate the enhanced post-processor:
 
 ```sh
-python3 ./scripts/vv8-cli.py crawl -u 'https://google.com'
+docker cp artifacts/vv8-post-processor {POST_PROCESSOR_CONTAINER_ID}:/app/post-processors
 ```
 
-If you want to apply a specific vv8-postprocessor, you can use:
+## Network Configuration
+
+The system operates across multiple ports and can be deployed on single or multiple machines:
+
+- **Port 4050**: LoginGPT sends login pages to VisibleV8 crawler
+- **Port 8100**: Individual JS scripts forwarded to BBSA system
+- **Port 5434**: VV8 database access (required by BBSA system)
+- **Port 3100**: Loki logging system
+- **Prometheus & Jaeger**: See respective config files for port requirements
+
+For multi-machine deployments, use SSH port forwarding to connect services across different hosts.
+
+## Usage
+
+### Start the FastAPI Listener
+
+Activate the FastAPI endpoint that listens for login pages to crawl:
 
 ```sh
-python3 ./scripts/vv8-cli.py crawl -u 'https://google.com' -pp 'Mfeatures'
+python ./scripts/vv8-cli.py crawl -sso
 ```
 
-To apply more than one postprocessor, you can instruct the postprocessor to run multiple postprocessors in a single go. For example, to use the adblock postprocessor along with the mega postprocessors, you can use:
+This starts a modified flow post-processor that stores submission URLs, enabling tracking of login pages across different domains (e.g., abc.com might have login pages on different subdomains or external domains).
+
+### Send URLs for Crawling
+
+The system accepts URLs via POST requests to the FastAPI endpoint. Use the following format:
 
 ```sh
-python3 ./scripts/vv8-cli.py crawl -u 'https://google.com' -pp 'Mfeatures+adblock'
+#!/bin/bash
+# send_single_url.sh - Example API usage
+
+# Configuration
+API_URL="http://127.0.0.1:4050/api/login_candidates"
+TASK_ID="101"
+URL="aswad546.github.io"
+FULL_URL="https://${URL}"
+SCAN_DOMAIN="${URL}"
+ID_NUM=1
+
+# Create the JSON payload
+JSON_PAYLOAD=$(cat <<EOF
+{
+  "task_id": "${TASK_ID}",
+  "candidates": [
+    {
+      "id": ${ID_NUM},
+      "url": "${FULL_URL}",
+      "actions": null,
+      "scan_domain": "${SCAN_DOMAIN}"
+    }
+  ]
+}
+EOF
+)
+
+echo "Sending URL: ${FULL_URL}"
+echo "Payload: ${JSON_PAYLOAD}"
+
+# Send the request
+response=$(curl -s -w "\n%{http_code}" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d "${JSON_PAYLOAD}" \
+  "${API_URL}")
+
+# Extract response body and status code
+http_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | head -n -1)
+
+echo "HTTP Status Code: ${http_code}"
+echo "Response: ${response_body}"
+
+# Check if successful
+if [ "$http_code" -eq 200 ]; then
+    echo "✅ Successfully sent URL!"
+else
+    echo "❌ Failed to send URL. HTTP Status: ${http_code}"
+    exit 1
+fi
 ```
 
-By default the postprocessed data will be written to an associated postgresql database which can be accessed using the following command if setup locally
+### Action Replay System
+
+The system can replicate navigation actions to reach login pages from home pages:
+
+- **With Actions**: Include a sequence of actions (clicks, form fills, etc.) in the `actions` field
+- **Without Actions**: Set `actions` to `null` to crawl the URL directly
+
+The crawler will replay the provided actions to navigate from the homepage to the target login page, enabling analysis of complex authentication flows.
+
+## Database Integration
+
+### Accessing the PostgreSQL Database
 
 ```sh
 psql --host=0.0.0.0 --port=5434 --dbname=vv8_backend --username=vv8
 ```
 
-> **Note** If prompted for a password, the password is by default `vv8`
+> **Note**: Default password is `vv8`
 
-If you want to pass more flags to the crawler (say you want to only stay on a specific page for 5s) and have the VisibleV8 binary run in the old headless mode
+### Linking Scripts to Submission URLs
 
-```sh
-python3 ./scripts/vv8-cli.py crawl -u 'https://google.com' -pp 'Mfeatures' --loiter-time 5 --headless="old"
+To correlate scripts with their originating submission URLs:
+
+```sql
+SELECT s.url as submission_url, sf.script_url, sf.script_id
+FROM submissions s
+JOIN script_flow sf ON s.id = sf.submission_id
+WHERE s.url = 'your_target_domain.com';
 ```
 
-## Run a list of URLs
+This query helps identify which domain each login page and associated scripts belong to, even when login pages are hosted on different domains.
 
-VV8 Crawler can also be used to crawl multiple URLs in one go:
+## Monitoring and Observability
 
-```sh
-python3 ./scripts/vv8-cli.py crawl -f file.txt
+### Web Interface Monitoring
+
+Access the Flower Web UI to monitor crawling and post-processing status:
+```
+http://localhost:5555
 ```
 
-> **Note**
-> `file.txt` is a file consisting of multiple urls seperated by newlines like such:
-> ```txt
-> https://google.com
-> https://amazon.com
-> https://microsoft.com
-> ```
+### Log Monitoring
 
-## Run a list of URLs in tranco format
-
-If you have a list of URLs in the tranco CSV format, you can directly run it using
+View real-time crawler logs:
 ```sh
-python3 ./scripts/vv8-cli.py crawl -c list.csv
+python3 ./scripts/vv8-cli.py docker -f
 ```
 
-## Run a specific URL
+### Centralized Logging with Loki
+
+All system components (BBSA, LoginGPT, VV8 Crawler) send structured logs to Loki at port 3100 for centralized log aggregation and search.
+
+### Metrics and Tracing
+
+- **Grafana Dashboards**: Visualize LoginGPT metrics and system performance
+- **Jaeger Traces**: Monitor distributed request flows through LoginGPT
+- **Prometheus Metrics**: Collect and aggregate performance metrics
+
+## Advanced Features
+
+### Fetch Crawl Metadata
+
+Retrieve various artifacts generated during crawling:
 
 ```sh
-python3 ./scripts/vv8-cli.py crawl -u 'https://google.com'
-```
-
-## Monitoring the status of a crawl
-
-The VisibleV8 crawler provides a flower Web UI to keep track of all URLs being crawled and postprocessed. The interface is accessible at `http://localhost:5555`.
-
-If you are running the server locally, you can use `python3 ./scripts/vv8-cli.py docker -f` to get a rolling log of everything the the crawler does.
-
-> **Note**
-> If you are using the crawler in a ssh session you can make use of [port-forwarding](https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding) to browse the web UI.
-
-## Fetch status of a crawl by URL
-
-```sh
+# Get crawl status
 python3 ./scripts/vv8-cli.py fetch status 'https://google.com'
+
+# Download screenshots
+python3 ./scripts/vv8-cli.py fetch screenshots 'https://google.com'
+
+# Get raw logs
+python3 ./scripts/vv8-cli.py fetch raw_logs 'https://google.com'
+
+# Download HAR files
+python3 ./scripts/vv8-cli.py fetch hars 'https://google.com'
 ```
 
-## Fetch generated metadata by URL
+### Post-Processor Integration
 
-We try to generate a har file, a screenshot and the VisibleV8 logs for every URL run and store it on mongodb, to fetch them you need to run `python3 ./scripts/vv8-cli.py fetch <metadata_name> 'https://google.com'`
+Apply behavioral biometric analysis during crawling:
 
 ```sh
-python3 ./scripts/vv8-cli.py fetch screenshots 'https://google.com'
+# Apply specific post-processor
+python3 ./scripts/vv8-cli.py crawl -u 'https://google.com' -pp 'Mfeatures'
+
+# Chain multiple post-processors
+python3 ./scripts/vv8-cli.py crawl -u 'https://google.com' -pp 'Mfeatures+adblock'
 ```
 
-You can request the following things:
+## Research Integration
 
-- `screenshots`
-- `raw_logs`
-- `hars`
-- `status`
+This enhanced VisibleV8 Crawler is specifically designed for behavioral biometric research and includes:
 
-This command will download the files to the current directory.
+- **Static Taint Analysis**: Automated detection of behavioral biometric scripts
+- **LoginGPT Navigation**: AI-powered login page discovery and navigation
+- **Cross-Domain Tracking**: Comprehensive tracking of authentication flows across domains
+- **Observability Stack**: Full monitoring and analysis capabilities for research workflows
+
+The system bridges the gap between automated web crawling and specialized behavioral biometric analysis, enabling large-scale studies of authentication technologies on the modern web.
+
+## Port Forwarding for Multi-Machine Setup
+
+For distributed deployments, use SSH port forwarding:
+
+```sh
+# Forward LoginGPT to VV8 Crawler
+ssh -L 4050:localhost:4050 user@loginGPT-server
+
+# Forward VV8 database to BBSA system
+ssh -L 5434:localhost:5434 user@vv8-server
+
+# Forward observability stack
+ssh -L 3100:localhost:3100 user@logging-server
+ssh -L 9090:localhost:9090 user@prometheus-server
+ssh -L 16686:localhost:16686 user@jaeger-server
+```
+
+> **Note**
+> If you are using the crawler in a SSH session, you can make use of [port-forwarding](https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding) to browse the web UI and access distributed services.
