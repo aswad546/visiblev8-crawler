@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import logging
+import os
 import psycopg2
 import requests
 import time
 import concurrent.futures
 from psycopg2.extras import execute_values
 
-# Configuration
-DB_HOST = "localhost"
-DB_PORT = 5434
-DB_NAME = "vv8_backend"
-DB_USER = "vv8"
-DB_PASSWORD = "vv8"
-API_ENDPOINT = "http://localhost:8100/analyze"
-BATCH_SIZE = 10000  # Increased batch size
-MAX_WORKERS = 10   # Number of concurrent workers
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5434"))
+DB_NAME = os.getenv("DB_NAME", "vv8_backend")
+DB_USER = os.getenv("DB_USER", "vv8")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "vv8")
+API_ENDPOINT = os.getenv("BBSA_API_URL", "http://localhost:8100/analyze")
+BATCH_SIZE = int(os.getenv("FORWARDER_BATCH_SIZE", "10000"))
+MAX_WORKERS = int(os.getenv("FORWARDER_MAX_WORKERS", "10"))
+POLL_INTERVAL = int(os.getenv("FORWARDER_INTERVAL_SECONDS", "10"))
 
 # Set up logging
 logging.basicConfig(
@@ -232,4 +234,20 @@ def main():
         conn.close()
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max-batches", type=int, default=0,
+                        help="Stop after N poll iterations (0 = loop forever)")
+    parser.add_argument("--once", action="store_true",
+                        help="Single pass then exit (ignores --max-batches)")
+    args = parser.parse_args()
+
+    if args.once:
+        main()
+    else:
+        i = 0
+        while True:
+            main()
+            i += 1
+            if args.max_batches and i >= args.max_batches:
+                break
+            time.sleep(POLL_INTERVAL)
