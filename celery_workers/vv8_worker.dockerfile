@@ -6,6 +6,7 @@ FROM python:3.10
 USER root
 
 COPY ./vv8_worker/chromium-build-deps.sh ./
+RUN sed -i 's/\r$//' ./chromium-build-deps.sh
 
 RUN apt-get update && apt install -y lsb-release;
 
