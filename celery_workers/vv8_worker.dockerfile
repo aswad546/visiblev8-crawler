@@ -1,7 +1,7 @@
 # To build run docker build -t visiblev8/vv8-worker:latest -f celery_workers/vv8_worker.dockerfile .
 FROM visiblev8/vv8-base:latest
 
-FROM python:3.10
+FROM python:3.10-bookworm
 
 USER root
 
@@ -78,6 +78,9 @@ RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
 COPY --chown=vv8:vv8 ./vv8_worker ./vv8_worker
 
 COPY ./vv8_worker/entrypoint.sh /entrypoint.sh
+USER root
+RUN sed -i 's/\r$//' /entrypoint.sh
+USER vv8
 
 # make sure we can run without a UI
 ENV DISPLAY :99

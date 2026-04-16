@@ -859,29 +859,28 @@ function main() {
                           if (page !== originalPage) {
                             logger.log('Page reference changed during actions');
                         }
-                        //   await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
+                          await page.screenshot({path: `./${uid}_actions.png`, fullPage: true, timeout: 0 });
                         }
                       }
-                      
+
                     page = await triggerEventHandlers(page);
                     logger.log('Triggered all events');
                     await sleep(options.loiterTime * 1000);
                 } catch (ex) {
                     if ( ex instanceof TimeoutError ) {
                         logger.error('TIMEOUT OCCURRED WHILE VISITING', ex);
-                        // await sleep(options.loiterTime * 1000 * 2);
                         throw ex;
                     } else {
                         logger.error(`Error occurred while visiting`, ex);
                         throw ex;
                     }
                 }
-                // if ( !options.disable_screenshots )
-                  // try{
-                  //   await page.screenshot({path: `./${uid}.png`, fullPage: true, timeout: 0 });                  
-                  // } catch(e) {
-                  //   logger.error('Failed to capture screenshot')
-                  // }
+                if ( !options.disable_screenshots )
+                  try{
+                    await page.screenshot({path: `./${uid}.png`, fullPage: true, timeout: 0 });
+                  } catch(e) {
+                    logger.error('Failed to capture screenshot')
+                  }
                     
                     
             } catch (ex) {

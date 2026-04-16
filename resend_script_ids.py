@@ -62,6 +62,7 @@ def get_batches(conn, last_id=0, batch_size=BATCH_SIZE):
     cursor.execute("""
         SELECT sf.id FROM script_flow sf
         WHERE sf.id > %s
+        AND (sf.api_status IS NULL OR sf.api_status != 200)
         AND NOT EXISTS (
             SELECT 1 FROM multicore_static_info msi
             WHERE msi.script_id = sf.id
